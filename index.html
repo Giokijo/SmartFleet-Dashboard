@@ -201,11 +201,14 @@
                 if (stUpper.includes("C") || stUpper.includes("CRITICAL") || stUpper.includes("PARAH")) status = "Critical";
                 else if (stUpper.includes("B") || stUpper.includes("CAUTION") || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) status = "Caution";
 
-                // Hanya mengambil nilai elemen keausan jika ada isinya
+                // Hanya mendeteksi kolom elemen keausan murni (Fe, Cu, Si, Pb, Sn, Cr, Al, dll)
                 let elements = [];
+                const exactElementCols = ['cu', 'fe', 'cr', 'pb', 'sn', 'si', 'al', 'sum'];
+                
                 keys.forEach(k => {
-                    let kLower = k.toLowerCase().trim();
-                    if (['cu', 'fe', 'cr', 'pb', 'sn', 'si', 'al', 'sum', 'over', 'element'].some(e => kLower.includes(e))) {
+                    let kClean = k.toLowerCase().trim();
+                    // Pastikan hanya mencocokkan nama kolom elemen kimia singkat secara akurat
+                    if (exactElementCols.includes(kClean) || kClean === 'elements' || kClean === 'wear_element') {
                         let val = r[k];
                         if (val && val.toString().trim() !== '' && val.toString().trim() !== '-' && val.toString().trim().toUpperCase() !== 'CLEAN') {
                             let cleanVal = val.toString().trim();
