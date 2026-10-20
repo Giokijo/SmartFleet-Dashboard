@@ -13,7 +13,7 @@
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
-        .comp-cell { width: 140px; min-width: 140px; max-width: 140px; }
+        .comp-cell { width: 160px; min-width: 160px; max-width: 160px; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
@@ -25,7 +25,7 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Live Sync: Google Sheets & Wear Elements Engine</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Live Sync: Google Sheets & AI Wear Recommendations Engine</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -64,7 +64,7 @@
         <!-- Main Matrix Table -->
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & AI Recommendations</h3>
                 <span class="text-[10px] text-slate-400">💡 Dynamic Column Mapping Active</span>
             </div>
             <div class="overflow-x-auto">
@@ -157,6 +157,20 @@
             });
         }
 
+        // Fungsi Generator Rekomendasi AI Berdasarkan Elemen & Status
+        function getAiRecommendation(elements, status) {
+            if (!elements || elements === '-') return '-';
+            let rec = `Elemen [${elements}] tinggi. `;
+            if (status === 'Critical') {
+                rec += 'AI Rekomendasi: Segera jadwalkan penggantian oli & inspeksi komponen!';
+            } else if (status === 'Caution') {
+                rec += 'AI Rekomendasi: Lakukan sampling ulang & monitor intensif.';
+            } else {
+                rec += 'AI Rekomendasi: Periksa filter & catat tren keausan.';
+            }
+            return rec;
+        }
+
         function processRawRows(rows) {
             if (!rows || rows.length === 0) return;
 
@@ -201,28 +215,30 @@
                 if (stUpper.includes("C") || stUpper.includes("CRITICAL") || stUpper.includes("PARAH")) status = "Critical";
                 else if (stUpper.includes("B") || stUpper.includes("CAUTION") || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) status = "Caution";
 
-                // Hanya mendeteksi kolom elemen keausan murni (Fe, Cu, Si, Pb, Sn, Cr, Al, dll)
-                let elements = [];
-                const exactElementCols = ['cu', 'fe', 'cr', 'pb', 'sn', 'si', 'al', 'sum'];
-                
+                // Deteksi kolom elemen over secara cerdas dari nama kolom
+                let foundElements = [];
                 keys.forEach(k => {
-                    let kClean = k.toLowerCase().trim();
-                    // Pastikan hanya mencocokkan nama kolom elemen kimia singkat secara akurat
-                    if (exactElementCols.includes(kClean) || kClean === 'elements' || kClean === 'wear_element') {
+                    let kLower = k.toLowerCase().trim();
+                    // Mencari kolom yang merepresentasikan elemen atau kata kunci over/elements
+                    if (/element|over|cu|fe|cr|pb|sn|si|al|sum/i.test(kLower)) {
                         let val = r[k];
-                        if (val && val.toString().trim() !== '' && val.toString().trim() !== '-' && val.toString().trim().toUpperCase() !== 'CLEAN') {
+                        if (val && val.toString().trim() !== '' && val.toString().trim() !== '-' && val.toString().trim().toUpperCase() !== 'CLEAN' && val.toString().trim().toUpperCase() !== 'NORMAL') {
                             let cleanVal = val.toString().trim();
-                            if (!elements.includes(cleanVal)) {
-                                elements.push(cleanVal);
+                            if (!foundElements.includes(cleanVal)) {
+                                foundElements.push(cleanVal);
                             }
                         }
                     }
                 });
 
+                let elementStr = foundElements.length > 0 ? foundElements.join(', ') : '-';
+                let aiRec = getAiRecommendation(elementStr, status);
+
                 unitMap[unit].components[comp] = {
                     status: status,
                     life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
-                    overElements: elements.length > 0 ? elements.join(', ') : '-'
+                    elements: elementStr,
+                    recommendation: aiRec
                 };
             });
 
@@ -285,13 +301,16 @@
                         if (compData.status === 'Caution' || compData.status === 'Critical') sosSum[comp]++;
                         let badgeClass = compData.status === 'Critical' ? 'badge-critical' : compData.status === 'Caution' ? 'badge-caution' : 'badge-normal';
                         
-                        let elementDisplay = (compData.overElements && compData.overElements !== '-') 
-                            ? `<div class="text-[9px] font-extrabold text-rose-800 bg-rose-100/90 rounded px-1 mt-0.5 truncate" title="${compData.overElements}">${compData.overElements}</div>` 
-                            : `<div class="text-[9px] font-normal text-slate-400 truncate">-</div>`;
+                        let elementDisplay = (compData.elements && compData.elements !== '-') 
+                            ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-1 text-[9px]">
+                                 <span class="font-extrabold text-rose-300 block">⚠️ ${compData.elements}</span>
+                                 <span class="text-[8px] text-slate-300 block mt-0.5 leading-tight">${compData.recommendation}</span>
+                               </div>` 
+                            : `<div class="mt-1 text-[9px] text-slate-400 text-center">-</div>`;
 
                         rowHTML += `
-                            <td class="p-2.5 border-r border-slate-800/80 comp-cell">
-                                <div class="px-2 py-1.5 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between h-16 shadow-sm">
+                            <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
+                                <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[75px]">
                                     <div class="flex justify-between items-center">
                                         <span class="font-bold">${compData.status}</span>
                                         <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/80 px-1 rounded">${compData.life}</span>
@@ -302,8 +321,8 @@
                         `;
                     } else {
                         rowHTML += `
-                            <td class="p-2.5 border-r border-slate-800/80 comp-cell">
-                                <div class="px-2 py-1.5 rounded-lg text-[10px] badge-nodata font-semibold flex flex-col justify-between h-16 shadow-sm">
+                            <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
+                                <div class="px-2 py-2 rounded-lg text-[10px] badge-nodata font-semibold flex flex-col justify-between min-h-[75px] shadow-sm">
                                     <span class="text-[9px] text-slate-500">N/A</span>
                                 </div>
                             </td>
