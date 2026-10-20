@@ -162,7 +162,6 @@
 
             const keys = Object.keys(rows[0]);
 
-            // Deteksi kolom secara fleksibel
             const assetKey = keys.find(k => /unit|asset|equipment|serial|no|id/i.test(k)) || keys[0];
             const modelKey = keys.find(k => /model|type|family|machine/i.test(k));
             const componentKey = keys.find(k => /component|komponen|assembly|system|part/i.test(k));
@@ -202,14 +201,14 @@
                 if (stUpper.includes("C") || stUpper.includes("CRITICAL") || stUpper.includes("PARAH")) status = "Critical";
                 else if (stUpper.includes("B") || stUpper.includes("CAUTION") || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) status = "Caution";
 
-                // Kumpulkan elemen keausan yang ada isinya di baris tersebut
+                // Hanya mengambil nilai elemen keausan jika ada isinya
                 let elements = [];
                 keys.forEach(k => {
                     let kLower = k.toLowerCase().trim();
                     if (['cu', 'fe', 'cr', 'pb', 'sn', 'si', 'al', 'sum', 'over', 'element'].some(e => kLower.includes(e))) {
                         let val = r[k];
                         if (val && val.toString().trim() !== '' && val.toString().trim() !== '-' && val.toString().trim().toUpperCase() !== 'CLEAN') {
-                            let cleanVal = `${k.toUpperCase()}: ${val.toString().trim()}`;
+                            let cleanVal = val.toString().trim();
                             if (!elements.includes(cleanVal)) {
                                 elements.push(cleanVal);
                             }
@@ -220,7 +219,7 @@
                 unitMap[unit].components[comp] = {
                     status: status,
                     life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
-                    overElements: elements.length > 0 ? elements.join(', ') : ''
+                    overElements: elements.length > 0 ? elements.join(', ') : '-'
                 };
             });
 
@@ -283,9 +282,9 @@
                         if (compData.status === 'Caution' || compData.status === 'Critical') sosSum[comp]++;
                         let badgeClass = compData.status === 'Critical' ? 'badge-critical' : compData.status === 'Caution' ? 'badge-caution' : 'badge-normal';
                         
-                        let elementDisplay = compData.overElements 
-                            ? `<div class="text-[9px] font-extrabold text-rose-800 bg-rose-100/90 rounded px-1 mt-0.5 truncate" title="${compData.overElements}">Over: ${compData.overElements}</div>` 
-                            : `<div class="text-[9px] font-normal text-emerald-700 truncate">Clean</div>`;
+                        let elementDisplay = (compData.overElements && compData.overElements !== '-') 
+                            ? `<div class="text-[9px] font-extrabold text-rose-800 bg-rose-100/90 rounded px-1 mt-0.5 truncate" title="${compData.overElements}">${compData.overElements}</div>` 
+                            : `<div class="text-[9px] font-normal text-slate-400 truncate">-</div>`;
 
                         rowHTML += `
                             <td class="p-2.5 border-r border-slate-800/80 comp-cell">
