@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFleet Live Condition Monitoring Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PapaParse for Fast CSV Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
+        .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
+        .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
+        .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
+        .comp-cell { width: 140px; min-width: 140px; max-width: 140px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
+
+    <div>
+        <!-- Header Section -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-2xl">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🚜</span>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
+                    <p class="text-xs text-slate-400 mt-0.5">Live Sync: Google Sheets & Wear Elements Engine</p>
+                </div>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
+                <span id="sync-status" class="text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse">
+                    Connecting to Google Sheets...
+                </span>
+                <button onclick="fetchAllData()" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2 rounded-xl transition duration-200 shadow-md">
+                    🔄 Sync Live CSV
+                </button>
+                <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer font-semibold text-xs px-3 py-2 rounded-xl border border-slate-700 transition">
+                    📁 Load File CSV
+                    <input type="file" id="local-csv-file" accept=".csv" class="hidden" onchange="handleLocalFile(event)">
+                </label>
+            </div>
+        </header>
+
+        <!-- Controls & Model Filter Bar -->
+        <div class="flex flex-wrap gap-4 mb-6 bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl items-center justify-between">
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Filter Unit / Asset:</label>
+                <select id="model-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500">
+                    <option value="ALL">All Fleet Units</option>
+                </select>
+            </div>
+            <div id="unit-counter" class="text-xs text-slate-400 font-medium">Processing records...</div>
+        </div>
+
+        <!-- Fleet Level Exceeded Summary Bar -->
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 mb-6 shadow-xl">
+            <h2 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">⚡ Fleet Status Exceeded (Sum per Component Assembly)</h2>
+            <div id="sos-sum-bar" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 text-center text-xs">
+                <!-- Dynamically populated component sum cells -->
+            </div>
+        </div>
+
+        <!-- Main Matrix Table -->
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
+                <span class="text-[10px] text-slate-400">💡 Wear Elements: Fe, Cu, Si, Pb, Sn, Cr, Al</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead id="matrix-head" class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                        <!-- Dynamic Headers -->
+                    </thead>
+                    <tbody id="matrix-body" class="divide-y divide-slate-800/80">
+                        <tr><td id="status-cell" colspan="20" class="p-6 text-center text-slate-400">Fetching live CSV data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Signature -->
+    <footer class="text-center mt-10 mb-2">
+        <p class="text-[11px] font-mono text-slate-500 tracking-wider">bernado@2026</p>
+    </footer>
+
+    <script>
+        const rawUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv";
+
+        let globalFleetData = [];
+        let allUniqueComponents = new Set();
+        let assetKey = '';
+        let componentKey = '';
+        let statusKey = '';
+        let meterKey = '';
+
+        async function fetchCSVWithMultiFallback(url) {
+            const endpoints = [
+                url, // Direct fetch works seamlessly on GitHub Pages
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                `https://corsproxy.io/?${encodeURIComponent(url)}`
+            ];
+
+            for (let ep of endpoints) {
+                try {
+                    const res = await fetch(ep);
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    if (text && text.trim().length > 0) {
+                        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+                        if (parsed.data && parsed.data.length > 0) return parsed.data;
+                    }
+                } catch (e) {
+                    console.warn(`Attempt failed for ${ep}`);
+                }
+            }
+            throw new Error("Gagal mengambil CSV.");
+        }
+
+        async function fetchAllData() {
+            const statusEl = document.getElementById('sync-status');
+            const statusCell = document.getElementById('status-cell');
+
+            statusEl.innerText = 'Syncing Live CSV...';
+            statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
+
+            try {
+                const rows = await fetchCSVWithMultiFallback(rawUrlData);
+                processRawRows(rows);
+
+                statusEl.innerText = '✓ Live CSV Synced Instantly';
+                statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
+
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                statusEl.innerText = 'Sync Warning / Offline Mode';
+                statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
+                if (statusCell) {
+                    statusCell.innerHTML = `<span class="text-rose-400 font-semibold">Gagal memuat data live CSV dari Google Sheets. Anda dapat menggunakan tombol <b>"📁 Load File CSV"</b> untuk memuat file secara manual.</span>`;
+                }
+            }
+        }
+
+        function handleLocalFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        processRawRows(results.data);
+                        const statusEl = document.getElementById('sync-status');
+                        statusEl.innerText = '✓ Local File Loaded';
+                        statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
+                    }
+                }
+            });
+        }
+
+        function processRawRows(rows) {
+            if (!rows || rows.length === 0) return;
+
+            const keys = Object.keys(rows[0]);
+            assetKey = keys.find(k => /unit|asset|equipment|serial|no|id/i.test(k)) || keys[0];
+            componentKey = keys.find(k => /component|komponen|assembly|system|part/i.test(k));
+            statusKey = keys.find(k => /status|health|rat|rating|kondisi/i.test(k));
+            meterKey = keys.find(k => /smu|meter|hours|jam|life/i.test(k));
+
+            let unitMap = {};
+            allUniqueComponents.clear();
+
+            rows.forEach(r => {
+                let unit = r[assetKey] || '';
+                let comp = componentKey ? (r[componentKey] || '') : 'GENERAL';
+                if (!unit) return;
+
+                unit = unit.toString().trim();
+                comp = comp.toString().trim().toUpperCase();
+                allUniqueComponents.add(comp);
+
+                if (!unitMap[unit]) {
+                    unitMap[unit] = {
+                        assetId: unit,
+                        components: {}
+                    };
+                }
+
+                let rawStatus = statusKey ? (r[statusKey] || 'Normal') : 'Normal';
+                let rawMeter = meterKey ? (r[meterKey] || '-') : '-';
+
+                let status = "Normal";
+                let stUpper = rawStatus.toString().toUpperCase();
+                if (stUpper.includes("C") || stUpper.includes("CRITICAL") || stUpper.includes("PARAH")) status = "Critical";
+                else if (stUpper.includes("B") || stUpper.includes("CAUTION") || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) status = "Caution";
+
+                let elements = [];
+                ['cu', 'fe', 'cr', 'pb', 'sn', 'si', 'al', 'sum'].forEach(elem => {
+                    let val = r[elem] || r[elem.toUpperCase()] || '';
+                    if (val && val.toString().trim() !== '' && !elements.includes(val.toString().trim())) {
+                        elements.push(val.toString().trim());
+                    }
+                });
+
+                unitMap[unit].components[comp] = {
+                    status: status,
+                    life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
+                    overElements: elements.join(', ')
+                };
+            });
+
+            globalFleetData = Object.values(unitMap);
+            buildMatrixUI(globalFleetData);
+        }
+
+        function buildMatrixUI(data) {
+            const select = document.getElementById('model-filter');
+            select.innerHTML = '<option value="ALL">All Fleet Units</option>';
+            data.forEach(d => {
+                let opt = document.createElement('option');
+                opt.value = d.assetId;
+                opt.innerText = d.assetId;
+                select.appendChild(opt);
+            });
+            renderTable(data);
+        }
+
+        function filterTable() {
+            const selected = document.getElementById('model-filter').value;
+            const filtered = selected === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.assetId === selected);
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const compList = Array.from(allUniqueComponents).sort();
+
+            const head = document.getElementById('matrix-head');
+            let headHTML = `<tr>
+                <th class="p-3 bg-blue-950/80 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-32 min-w-[128px]">➔ Asset ID</th>`;
+            compList.forEach(c => {
+                headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`;
+            });
+            headHTML += `</tr>`;
+            head.innerHTML = headHTML;
+
+            const body = document.getElementById('matrix-body');
+            body.innerHTML = '';
+
+            let sosSum = {};
+            compList.forEach(c => sosSum[c] = 0);
+
+            data.forEach(row => {
+                let tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/50 transition duration-150 border-b border-slate-800/60";
+
+                let rowHTML = `
+                    <td class="p-3 font-extrabold text-white bg-blue-950/40 text-sm tracking-wide border-r border-blue-900/60 w-32 min-w-[128px]">
+                        ${row.assetId}
+                    </td>
+                `;
+
+                compList.forEach(comp => {
+                    let compData = row.components[comp];
+                    if (compData) {
+                        if (compData.status === 'Caution' || compData.status === 'Critical') sosSum[comp]++;
+                        let badgeClass = compData.status === 'Critical' ? 'badge-critical' : compData.status === 'Caution' ? 'badge-caution' : 'badge-normal';
+                        let elementDisplay = compData.overElements ? `<div class="text-[9px] font-extrabold text-rose-800 bg-rose-100/90 rounded px-1 mt-0.5 truncate">Over: ${compData.overElements}</div>` : `<div class="text-[9px] font-normal text-emerald-700 truncate">Clean</div>`;
+
+                        rowHTML += `
+                            <td class="p-2.5 border-r border-slate-800/80 comp-cell">
+                                <div class="px-2 py-1.5 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between h-16 shadow-sm">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold">${compData.status}</span>
+                                        <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/80 px-1 rounded">${compData.life}</span>
+                                    </div>
+                                    ${elementDisplay}
+                                </div>
+                            </td>
+                        `;
+                    } else {
+                        rowHTML += `
+                            <td class="p-2.5 border-r border-slate-800/80 comp-cell">
+                                <div class="px-2 py-1.5 rounded-lg text-[10px] badge-nodata font-semibold flex flex-col justify-between h-16 shadow-sm">
+                                    <span class="text-[9px] text-slate-500">N/A</span>
+                                </div>
+                            </td>
+                        `;
+                    }
+                });
+
+                tr.innerHTML = rowHTML;
+                body.appendChild(tr);
+            });
+
+            document.getElementById('unit-counter').innerText = `Showing ${data.length} Fleet Units`;
+
+            const bar = document.getElementById('sos-sum-bar');
+            bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-${Math.min(compList.length || 1, 12)} gap-2 text-center text-xs`;
+            let barHTML = '';
+            compList.forEach(c => {
+                barHTML += `<div class="bg-slate-800 p-2 rounded-lg border border-slate-700"><span class="text-slate-400 block text-[9px] truncate">${c}</span><span class="text-sm font-bold text-amber-400">${sosSum[c]}</span></div>`;
+            });
+            bar.innerHTML = barHTML;
+        }
+
+        fetchAllData();
+    </script>
+</body>
+</html>
