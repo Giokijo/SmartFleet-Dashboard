@@ -157,12 +157,12 @@
             });
         }
 
-        // English AI Recommendation Generator based on wear elements & status
+        // Fully translated English AI recommendation generator
         function getAiRecommendation(elements, status) {
             if (!elements || elements === '-') return '-';
             let rec = `AI Rec: `;
             if (status === 'Critical') {
-                rec += `Elements [${elements}] exceed critical limits. Schedule immediate component inspection & oil change!`;
+                rec += `Elements [${elements}] exceed critical thresholds. Schedule immediate component inspection & oil change!`;
             } else if (status === 'Caution') {
                 rec += `Elements [${elements}] are elevated. Perform oil resampling and monitor closely.`;
             } else {
