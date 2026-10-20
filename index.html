@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +13,7 @@
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
-        .comp-cell { width: 165px; min-width: 165px; max-width: 165px; }
+        .comp-cell { width: 175px; min-width: 175px; max-width: 175px; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
@@ -36,7 +36,7 @@
                     🔄 Sync Live CSV
                 </button>
                 <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer font-semibold text-xs px-3 py-2 rounded-xl border border-slate-700 transition">
-                    📁 Load File CSV
+                    📁 Load CSV File
                     <input type="file" id="local-csv-file" accept=".csv" class="hidden" onchange="handleLocalFile(event)">
                 </label>
             </div>
@@ -112,7 +112,7 @@
                     console.warn(`Attempt failed for ${ep}`);
                 }
             }
-            throw new Error("Gagal mengambil CSV.");
+            throw new Error("Failed to fetch CSV data.");
         }
 
         async function fetchAllData() {
@@ -134,7 +134,7 @@
                 statusEl.innerText = 'Sync Warning / Offline Mode';
                 statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
                 if (statusCell) {
-                    statusCell.innerHTML = `<span class="text-rose-400 font-semibold">Gagal memuat otomatis. Silakan gunakan tombol <b>"📁 Load File CSV"</b> di atas.</span>`;
+                    statusCell.innerHTML = `<span class="text-rose-400 font-semibold">Automatic fetch failed. Please use the <b>"📁 Load CSV File"</b> button above.</span>`;
                 }
             }
         }
@@ -157,24 +157,24 @@
             });
         }
 
-        // Generator Rekomendasi AI berdasarkan elemen keausan
+        // English AI Recommendation Generator based on wear elements & status
         function getAiRecommendation(elements, status) {
             if (!elements || elements === '-') return '-';
-            let rec = `AI: `;
+            let rec = `AI Rec: `;
             if (status === 'Critical') {
-                rec += `Level [${elements}] melebihi ambang batas kritis. Segera inspeksi komponen & ganti oli!`;
+                rec += `Elements [${elements}] exceed critical limits. Schedule immediate component inspection & oil change!`;
             } else if (status === 'Caution') {
-                rec += `Kandungan [${elements}] terdeteksi tinggi. Jadwalkan resampling oli secara berkala.`;
+                rec += `Elements [${elements}] are elevated. Perform oil resampling and monitor closely.`;
             } else {
-                rec += `Kandungan [${elements}] terdeteksi, periksa filter & lakukan pemantauan tren.`;
+                rec += `Elements [${elements}] detected, check filters and observe wear trend.`;
             }
             return rec;
         }
 
-        // Pembersih khusus string "Cu,Fe,Cr,,Sn,Si" -> "Cu, Fe, Cr, Sn, Si"
+        // Clean up wear elements string (e.g. "Cu,Fe,Cr,,Sn,Si" -> "Cu, Fe, Cr, Sn, Si")
         function parseWearElements(rawStr) {
             if (!rawStr || rawStr.trim() === '' || rawStr.includes('#N/A')) return '-';
-            let parts = rawStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            let parts = rawStr.split(',').map(s => s.trim()).filter(s => s.length > 0 && isNaN(s) && s.length <= 4);
             return parts.length > 0 ? parts.join(', ') : '-';
         }
 
@@ -189,7 +189,7 @@
             const statusKey = keys.find(k => /oil summary health|health|status|rat|rating|kondisi/i.test(k));
             const meterKey = keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
             
-            // Tepat menyasar kolom "Element over"
+            // Strictly target the exact "Element over" column
             const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
 
             let unitMap = {};
@@ -225,7 +225,7 @@
                 if (stUpper.includes("CRITICAL") || stUpper.includes("C") || stUpper.includes("PARAH")) status = "Critical";
                 else if (stUpper.includes("CAUTION") || stUpper.includes("B") || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) status = "Caution";
 
-                // Ekstraksi nilai elemen keausan
+                // Extract and clean wear elements data safely
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
                 let aiRec = getAiRecommendation(cleanElements, status);
