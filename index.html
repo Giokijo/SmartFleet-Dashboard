@@ -65,7 +65,7 @@
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 Dynamic Column Mapping Active</span>
+                <span class="text-[10px] text-slate-400">💡 Dynamic Reference Mapping Active</span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
@@ -86,10 +86,11 @@
     </footer>
 
     <script>
-        // Cache-buster timestamp parameter added to bypass browser caching
-        const rawUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
+        const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
+        const refUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_DtcF1BsuBTnWOyynTItBnOtKyJE99AD33kHM5A_Uu46FRHPvzFYRYOIUCLWmeQ/pub?output=csv&t=" + new Date().getTime();
 
         let globalFleetData = [];
+        let referenceRecMap = {};
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
 
@@ -116,18 +117,40 @@
             throw new Error("Failed to fetch CSV data.");
         }
 
+        async function loadReferenceData() {
+            try {
+                const refRows = await fetchCSVWithMultiFallback(refUrlData);
+                refRows.forEach(r => {
+                    let keys = Object.keys(r);
+                    let sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
+                    let recKey = keys.find(k => /eval|recommendation|rekomendasi|comment|evaluation/i.test(k));
+                    
+                    if (sampleKey && recKey && r[sampleKey] && r[recKey]) {
+                        let sampleId = r[sampleKey].toString().trim();
+                        let recText = r[recKey].toString().trim();
+                        if (recText && recText !== 'None') {
+                            referenceRecMap[sampleId] = recText;
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn("Reference Sheet fetch error:", e);
+            }
+        }
+
         async function fetchAllData() {
             const statusEl = document.getElementById('sync-status');
             const statusCell = document.getElementById('status-cell');
 
-            statusEl.innerText = 'Syncing Live CSV...';
+            statusEl.innerText = 'Syncing Live CSV & Reference Data...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
             try {
-                const rows = await fetchCSVWithMultiFallback(rawUrlData);
+                await loadReferenceData();
+                const rows = await fetchCSVWithMultiFallback(mainUrlData);
                 processRawRows(rows);
 
-                statusEl.innerText = '✓ Live CSV Synced Instantly';
+                statusEl.innerText = '✓ Live Data & English Reference Synced';
                 statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
 
             } catch (err) {
@@ -158,8 +181,12 @@
             });
         }
 
-        // 100% English AI Recommendation Generator
-        function getAiRecommendation(elements, status) {
+        // English AI Recommendation Generator with fallback lookup from reference dataset
+        function getAiRecommendation(sampleId, elements, status) {
+            if (sampleId && referenceRecMap[sampleId]) {
+                return `Rec: ${referenceRecMap[sampleId]}`;
+            }
+
             if (!elements || elements === '-') return '-';
             let rec = `AI Rec: `;
             if (status === 'Critical') {
@@ -167,12 +194,12 @@
             } else if (status === 'Caution') {
                 rec += `Elements [${elements}] are elevated. Perform oil resampling and monitor closely.`;
             } else {
-                rec += `Elements [${elements}] detected, check filters and observe wear trend.`;
+                rec += `Elements [${elements}] detected. Inspect filters and record wear trend.`;
             }
             return rec;
         }
 
-        // Strict Wear Elements Parser (filters out numbers, meters, and serial numbers)
+        // Strict Wear Elements Parser
         function parseWearElements(rawStr) {
             if (!rawStr || rawStr.trim() === '' || rawStr.includes('#N/A')) return '-';
             const validElements = ['CU', 'FE', 'CR', 'PB', 'SN', 'SI', 'AL', 'MO', 'NI', 'AG', 'B', 'NA', 'K', 'V', 'ZN'];
@@ -192,8 +219,7 @@
             const componentKey = keys.find(k => /component|komponen|assembly|system|part/i.test(k));
             const statusKey = keys.find(k => /oil summary health|health|status|rat|rating|kondisi/i.test(k));
             const meterKey = keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
-            
-            // Target exact "Element over" column safely
+            const sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
             const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
 
             let unitMap = {};
@@ -223,129 +249,17 @@
 
                 let rawStatus = statusKey ? (r[statusKey] || 'Normal') : 'Normal';
                 let rawMeter = meterKey ? (r[meterKey] || '-') : '-';
+                let sampleId = sampleKey && r[sampleKey] ? r[sampleKey].toString().trim() : null;
 
                 let status = "Normal";
                 let stUpper = rawStatus.toString().toUpperCase();
                 if (stUpper.includes("CRITICAL") || stUpper.includes("C") || stUpper.includes("PARAH")) status = "Critical";
                 else if (stUpper.includes("CAUTION") || stUpper.includes("B") || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) status = "Caution";
 
-                // Extract and clean wear elements with strict chemical symbol validation
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
-                let aiRec = getAiRecommendation(cleanElements, status);
+                let aiRec = getAiRecommendation(sampleId, cleanElements, status);
 
                 unitMap[unit].components[comp] = {
                     status: status,
-                    life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
-                    elements: cleanElements,
-                    recommendation: aiRec
-                };
-            });
-
-            globalFleetData = Object.values(unitMap);
-            buildMatrixUI(globalFleetData);
-        }
-
-        function buildMatrixUI(data) {
-            const select = document.getElementById('model-filter');
-            select.innerHTML = '<option value="ALL">All Models</option>';
-            
-            Array.from(allUniqueModels).sort().forEach(m => {
-                let opt = document.createElement('option');
-                opt.value = m;
-                opt.innerText = m;
-                select.appendChild(opt);
-            });
-
-            renderTable(data);
-        }
-
-        function filterTable() {
-            const selectedModel = document.getElementById('model-filter').value;
-            const filtered = selectedModel === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === selectedModel);
-            renderTable(filtered);
-        }
-
-        function renderTable(data) {
-            const compList = Array.from(allUniqueComponents).sort();
-
-            const head = document.getElementById('matrix-head');
-            let headHTML = `<tr>
-                <th class="p-3 bg-blue-950/80 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px]">➔ Asset ID / Model</th>`;
-            compList.forEach(c => {
-                headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`;
-            });
-            headHTML += `</tr>`;
-            head.innerHTML = headHTML;
-
-            const body = document.getElementById('matrix-body');
-            body.innerHTML = '';
-
-            let sosSum = {};
-            compList.forEach(c => sosSum[c] = 0);
-
-            data.forEach(row => {
-                let tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/50 transition duration-150 border-b border-slate-800/60";
-
-                let rowHTML = `
-                    <td class="p-3 font-extrabold text-white bg-blue-950/40 text-sm tracking-wide border-r border-blue-900/60 w-36 min-w-[144px]">
-                        <div>${row.assetId}</div>
-                        <div class="text-[10px] font-normal text-blue-300 opacity-80">${row.model}</div>
-                    </td>
-                `;
-
-                compList.forEach(comp => {
-                    let compData = row.components[comp];
-                    if (compData) {
-                        if (compData.status === 'Caution' || compData.status === 'Critical') sosSum[comp]++;
-                        let badgeClass = compData.status === 'Critical' ? 'badge-critical' : compData.status === 'Caution' ? 'badge-caution' : 'badge-normal';
-                        
-                        let elementDisplay = (compData.elements && compData.elements !== '-') 
-                            ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-1 text-[9px]">
-                                 <span class="font-extrabold text-rose-300 block">⚠️ ${compData.elements}</span>
-                                 <span class="text-[8px] text-slate-300 block mt-0.5 leading-tight">${compData.recommendation}</span>
-                               </div>` 
-                            : `<div class="mt-1 text-[9px] text-slate-400 text-center">-</div>`;
-
-                        rowHTML += `
-                            <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
-                                <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[75px]">
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-bold">${compData.status}</span>
-                                        <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/80 px-1 rounded">${compData.life}</span>
-                                    </div>
-                                    ${elementDisplay}
-                                </div>
-                            </td>
-                        `;
-                    } else {
-                        rowHTML += `
-                            <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
-                                <div class="px-2 py-2 rounded-lg text-[10px] badge-nodata font-semibold flex flex-col justify-between min-h-[75px] shadow-sm">
-                                    <span class="text-[9px] text-slate-500">N/A</span>
-                                </div>
-                            </td>
-                        `;
-                    }
-                });
-
-                tr.innerHTML = rowHTML;
-                body.appendChild(tr);
-            });
-
-            document.getElementById('unit-counter').innerText = `Showing ${data.length} Fleet Units`;
-
-            const bar = document.getElementById('sos-sum-bar');
-            bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-${Math.min(compList.length || 1, 12)} gap-2 text-center text-xs`;
-            let barHTML = '';
-            compList.forEach(c => {
-                barHTML += `<div class="bg-slate-800 p-2 rounded-lg border border-slate-700"><span class="text-slate-400 block text-[9px] truncate">${c}</span><span class="text-sm font-bold text-amber-400">${sosSum[c]}</span></div>`;
-            });
-            bar.innerHTML = barHTML;
-        }
-
-        fetchAllData();
-    </script>
-</body>
-</html>
+                    life: rawMeter !== '-' ? rawMeter
