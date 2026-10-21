@@ -15,30 +15,39 @@
         .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
         .comp-cell { width: 180px; min-width: 180px; max-width: 180px; }
 
-        /* Sticky Table Configuration */
+        /* Strict Scroll & Freeze Configuration */
         .table-container {
             max-height: 75vh;
-            overflow: auto;
+            overflow-y: auto;
+            overflow-x: auto;
             position: relative;
         }
+
         /* Freeze Component Headers on Vertical Scroll */
         thead th {
             position: sticky;
             top: 0;
-            z-index: 30;
-            background-color: #020617; /* slate-950 */
+            z-index: 20;
+            background-color: #020617 !important; /* solid slate-950 background */
+            box-shadow: inset 0 -1px 0 #1e293b;
         }
+
         /* Freeze Asset ID Column on Horizontal Scroll */
         .sticky-asset-col {
             position: sticky;
             left: 0;
-            z-index: 20;
-            background-color: #090d16; /* matching dark background */
+            z-index: 10;
+            background-color: #0f172a !important; /* solid slate-900 background */
+            box-shadow: inset -1px 0 0 #1e293b;
         }
-        /* Ensure top-left corner cell stays above everything */
+
+        /* Intersecting Top-Left Corner Cell (Highest Priority) */
         thead th.sticky-asset-col {
-            z-index: 40;
-            background-color: #020617;
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 30;
+            background-color: #020617 !important;
         }
     </style>
 </head>
@@ -51,7 +60,7 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Instant-Load Engine: Frozen Headers & Sticky Columns Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Instant-Load Engine: Fully Frozen Headers & Sticky Columns Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -95,7 +104,7 @@
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
-                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider">
                         <!-- Dynamic Headers -->
                     </thead>
                     <tbody id="matrix-body" class="divide-y divide-slate-800/80">
@@ -328,9 +337,9 @@
 
             const head = document.getElementById('matrix-head');
             let headHTML = `<tr>
-                <th class="p-3 bg-blue-950/90 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID / Model</th>`;
+                <th class="p-3 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID / Model</th>`;
             compList.forEach(c => {
-                headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center bg-slate-950">${c}</th>`;
+                headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`;
             });
             headHTML += `</tr>`;
             head.innerHTML = headHTML;
@@ -346,7 +355,7 @@
                 tr.className = "hover:bg-slate-800/50 transition duration-150 border-b border-slate-800/60";
 
                 let rowHTML = `
-                    <td class="p-3 font-extrabold text-white text-sm tracking-wide border-r border-blue-900/60 w-36 min-w-[144px] sticky-asset-col shadow-md">
+                    <td class="p-3 font-extrabold text-white text-sm tracking-wide border-r border-blue-900/60 w-36 min-w-[144px] sticky-asset-col">
                         <div>${row.assetId}</div>
                         <div class="text-[10px] font-normal text-blue-300 opacity-80">${row.model}</div>
                     </td>
