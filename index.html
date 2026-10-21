@@ -14,6 +14,32 @@
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
         .comp-cell { width: 180px; min-width: 180px; max-width: 180px; }
+
+        /* Sticky Table Configuration */
+        .table-container {
+            max-height: 75vh;
+            overflow: auto;
+            position: relative;
+        }
+        /* Freeze Component Headers on Vertical Scroll */
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background-color: #020617; /* slate-950 */
+        }
+        /* Freeze Asset ID Column on Horizontal Scroll */
+        .sticky-asset-col {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background-color: #090d16; /* matching dark background */
+        }
+        /* Ensure top-left corner cell stays above everything */
+        thead th.sticky-asset-col {
+            z-index: 40;
+            background-color: #020617;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
@@ -25,14 +51,14 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Lightning-Fast Live Sync: Google Sheets & AI Wear Engine</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Instant-Load Engine: Frozen Headers & Sticky Columns Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
-                <span id="sync-status" class="text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse">
-                    Connecting...
+                <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">
+                    Initializing Fast Load...
                 </span>
-                <button onclick="fetchAllData()" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2 rounded-xl transition duration-200 shadow-md">
+                <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2 rounded-xl transition duration-200 shadow-md">
                     🔄 Sync Live CSV
                 </button>
                 <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer font-semibold text-xs px-3 py-2 rounded-xl border border-slate-700 transition">
@@ -65,15 +91,15 @@
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 Fast Engine Active</span>
+                <span class="text-[10px] text-slate-400">💡 Frozen Header & Sticky Column Enabled</span>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
-                    <thead id="matrix-head" class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                         <!-- Dynamic Headers -->
                     </thead>
                     <tbody id="matrix-body" class="divide-y divide-slate-800/80">
-                        <tr><td id="status-cell" colspan="20" class="p-6 text-center text-slate-400">Fetching live CSV data...</td></tr>
+                        <tr><td id="status-cell" colspan="20" class="p-6 text-center text-slate-400">Loading dashboard...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -86,16 +112,20 @@
     </footer>
 
     <script>
-        const rawUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv";
+        const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv";
+        const refUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_DtcF1BsuBTnWOyynTItBnOtKyJE99AD33kHM5A_Uu46FRHPvzFYRYOIUCLWmeQ/pub?output=csv";
 
         let globalFleetData = [];
+        let referenceRecMap = {};
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
 
-        async function fetchCSVWithFastFallback(url) {
-            // Menggunakan fetch langsung tanpa corsproxy berlapis agar loading langsung instan
+        async function fetchWithTimeout(url, timeoutMs = 3500) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                const res = await fetch(url);
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
                 if (res.ok) {
                     const text = await res.text();
                     if (text && text.trim().length > 0) {
@@ -103,40 +133,67 @@
                     }
                 }
             } catch (e) {
-                console.warn("Direct fetch skipped, trying fallback...");
+                clearTimeout(timer);
             }
-
-            // Fallback ringan via allorigins jika direct terblokir jaringan lokal
             const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
             const res = await fetch(fallbackUrl);
             const text = await res.text();
             return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
         }
 
-        async function fetchAllData() {
+        async function fetchAllData(forceRefresh = false) {
             const statusEl = document.getElementById('sync-status');
-            const statusCell = document.getElementById('status-cell');
+            
+            const cachedMain = localStorage.getItem('smartfleet_main_csv');
+            const cachedRef = localStorage.getItem('smartfleet_ref_csv');
 
-            statusEl.innerText = 'Syncing Live CSV...';
-            statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
+            if (!forceRefresh && cachedMain) {
+                statusEl.innerText = '✓ Loaded from Instant Cache';
+                statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
+                if (cachedRef) parseReferenceRows(JSON.parse(cachedRef));
+                processRawRows(JSON.parse(cachedMain));
+            } else {
+                statusEl.innerText = 'Syncing Live CSV...';
+                statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
+            }
 
             try {
-                const rows = await fetchCSVWithFastFallback(rawUrlData);
-                if (rows && rows.length > 0) {
-                    processRawRows(rows);
-                    statusEl.innerText = '✓ Synced Successfully';
+                const [mainRes, refRes] = await Promise.allSettled([
+                    fetchWithTimeout(mainUrlData),
+                    fetchWithTimeout(refUrlData)
+                ]);
+
+                if (refRes.status === 'fulfilled' && refRes.value) {
+                    parseReferenceRows(refRes.value);
+                    localStorage.setItem('smartfleet_ref_csv', JSON.stringify(refRes.value));
+                }
+
+                if (mainRes.status === 'fulfilled' && mainRes.value) {
+                    processRawRows(mainRes.value);
+                    localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes.value));
+                    statusEl.innerText = '✓ Live CSV Synced';
                     statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
-                } else {
-                    throw new Error("Empty data rows");
                 }
             } catch (err) {
-                console.error("Fetch Error:", err);
-                statusEl.innerText = 'Sync Error';
-                statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
-                if (statusCell) {
-                    statusCell.innerHTML = `<span class="text-rose-400 font-semibold">Failed to fetch data automatically. Please use the <b>"📁 Load CSV File"</b> button.</span>`;
-                }
+                console.warn("Live fetch fallback encounter:", err);
             }
+        }
+
+        function parseReferenceRows(refRows) {
+            if (!refRows || refRows.length === 0) return;
+            refRows.forEach(r => {
+                let keys = Object.keys(r);
+                let sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
+                let recKey = keys.find(k => /eval|recommendation|rekomendasi|comment|evaluation/i.test(k));
+                
+                if (sampleKey && recKey && r[sampleKey] && r[recKey]) {
+                    let sampleId = r[sampleKey].toString().trim();
+                    let recText = r[recKey].toString().trim();
+                    if (recText && recText !== 'None') {
+                        referenceRecMap[sampleId] = recText;
+                    }
+                }
+            });
         }
 
         function handleLocalFile(event) {
@@ -157,8 +214,11 @@
             });
         }
 
-        // Fast English AI Recommendation Generator
-        function getAiRecommendation(elements, status) {
+        function getAiRecommendation(sampleId, elements, status) {
+            if (sampleId && referenceRecMap[sampleId]) {
+                return `Rec: ${referenceRecMap[sampleId]}`;
+            }
+
             if (!elements || elements === '-') return '-';
             let rec = `AI Rec: `;
             if (status === 'Critical') {
@@ -171,7 +231,6 @@
             return rec;
         }
 
-        // Strict Wear Elements Parser
         function parseWearElements(rawStr) {
             if (!rawStr || rawStr.trim() === '' || rawStr.includes('#N/A')) return '-';
             const validElements = ['CU', 'FE', 'CR', 'PB', 'SN', 'SI', 'AL', 'MO', 'NI', 'AG', 'B', 'NA', 'K', 'V', 'ZN'];
@@ -191,6 +250,7 @@
             const componentKey = keys.find(k => /component|komponen|assembly|system|part/i.test(k));
             const statusKey = keys.find(k => /oil summary health|health|status|rat|rating|kondisi/i.test(k));
             const meterKey = keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
+            const sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
             const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
 
             let unitMap = {};
@@ -220,6 +280,7 @@
 
                 let rawStatus = statusKey ? (r[statusKey] || 'Normal') : 'Normal';
                 let rawMeter = meterKey ? (r[meterKey] || '-') : '-';
+                let sampleId = sampleKey && r[sampleKey] ? r[sampleKey].toString().trim() : null;
 
                 let status = "Normal";
                 let stUpper = rawStatus.toString().toUpperCase();
@@ -228,7 +289,7 @@
 
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
-                let aiRec = getAiRecommendation(cleanElements, status);
+                let aiRec = getAiRecommendation(sampleId, cleanElements, status);
 
                 unitMap[unit].components[comp] = {
                     status: status,
@@ -267,9 +328,9 @@
 
             const head = document.getElementById('matrix-head');
             let headHTML = `<tr>
-                <th class="p-3 bg-blue-950/80 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px]">➔ Asset ID / Model</th>`;
+                <th class="p-3 bg-blue-950/90 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID / Model</th>`;
             compList.forEach(c => {
-                headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`;
+                headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center bg-slate-950">${c}</th>`;
             });
             headHTML += `</tr>`;
             head.innerHTML = headHTML;
@@ -285,7 +346,7 @@
                 tr.className = "hover:bg-slate-800/50 transition duration-150 border-b border-slate-800/60";
 
                 let rowHTML = `
-                    <td class="p-3 font-extrabold text-white bg-blue-950/40 text-sm tracking-wide border-r border-blue-900/60 w-36 min-w-[144px]">
+                    <td class="p-3 font-extrabold text-white text-sm tracking-wide border-r border-blue-900/60 w-36 min-w-[144px] sticky-asset-col shadow-md">
                         <div>${row.assetId}</div>
                         <div class="text-[10px] font-normal text-blue-300 opacity-80">${row.model}</div>
                     </td>
