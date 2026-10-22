@@ -15,12 +15,15 @@
         .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
         .comp-cell { width: 180px; min-width: 180px; max-width: 180px; }
 
+        /* Strict Scroll & Freeze Configuration */
         .table-container {
             max-height: 75vh;
             overflow-y: auto;
             overflow-x: auto;
             position: relative;
         }
+
+        /* Freeze Component Headers on Vertical Scroll */
         thead th {
             position: sticky;
             top: 0;
@@ -28,6 +31,8 @@
             background-color: #020617 !important;
             box-shadow: inset 0 -1px 0 #1e293b;
         }
+
+        /* Freeze Asset ID Column on Horizontal Scroll */
         .sticky-asset-col {
             position: sticky;
             left: 0;
@@ -35,6 +40,8 @@
             background-color: #0f172a !important;
             box-shadow: inset -1px 0 0 #1e293b;
         }
+
+        /* Intersecting Top-Left Corner Cell */
         thead th.sticky-asset-col {
             position: sticky;
             top: 0;
@@ -47,12 +54,13 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
 
     <div>
+        <!-- Header Section -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-2xl">
             <div class="flex items-center gap-3">
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Mapping Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Reliability Engineering & Condition Monitoring AI Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -69,9 +77,10 @@
             </div>
         </header>
 
+        <!-- Controls & Model Filter Bar -->
         <div class="flex flex-wrap gap-4 mb-6 bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl items-center justify-between">
             <div class="flex items-center gap-3 w-full md:w-auto">
-                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Filter Model:</label>
+                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Filter Model / Equipment:</label>
                 <select id="model-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500">
                     <option value="ALL">All Models</option>
                 </select>
@@ -79,19 +88,25 @@
             <div id="unit-counter" class="text-xs text-slate-400 font-medium">Processing records...</div>
         </div>
 
+        <!-- Fleet Level Exceeded Summary Bar -->
         <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 mb-6 shadow-xl">
             <h2 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">⚡ Fleet Status Exceeded (Sum per Component Assembly)</h2>
-            <div id="sos-sum-bar" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 text-center text-xs"></div>
+            <div id="sos-sum-bar" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 text-center text-xs">
+                <!-- Dynamically populated component sum cells -->
+            </div>
         </div>
 
+        <!-- Main Matrix Table -->
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 Direct element Mapping</span>
+                <span class="text-[10px] text-slate-400">💡 SOS Library + Reliability Engineering AI Integration</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
-                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider"></thead>
+                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider">
+                        <!-- Dynamic Headers -->
+                    </thead>
                     <tbody id="matrix-body" class="divide-y divide-slate-800/80">
                         <tr><td id="status-cell" colspan="20" class="p-6 text-center text-slate-400">Loading dashboard...</td></tr>
                     </tbody>
@@ -100,14 +115,17 @@
         </div>
     </div>
 
+    <!-- Footer Signature -->
     <footer class="text-center mt-10 mb-2">
         <p class="text-[11px] font-mono text-slate-500 tracking-wider">bdw@2026</p>
     </footer>
 
     <script>
         const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
+        const refUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_DtcF1BsuBTnWOyynTItBnOtKyJE99AD33kHM5A_Uu46FRHPvzFYRYOIUCLWmeQ/pub?output=csv&t=" + new Date().getTime();
 
         let globalFleetData = [];
+        let referenceRecMap = {};
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
 
@@ -134,23 +152,38 @@
 
         async function fetchAllData(forceRefresh = true) {
             const statusEl = document.getElementById('sync-status');
-            if (forceRefresh) localStorage.removeItem('smartfleet_main_csv');
+            
+            if (forceRefresh) {
+                localStorage.removeItem('smartfleet_main_csv');
+                localStorage.removeItem('smartfleet_ref_csv');
+            }
 
-            statusEl.innerText = 'Syncing Live CSV...';
+            statusEl.innerText = 'Syncing Live CSV & SOS Guide...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
             try {
-                const mainRes = await fetchWithTimeout(mainUrlData);
-                if (mainRes && mainRes.length > 0) {
-                    processRawRows(mainRes);
-                    localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes));
-                    statusEl.innerText = '✓ Live CSV Synced';
+                const [mainRes, refRes] = await Promise.allSettled([
+                    fetchWithTimeout(mainUrlData),
+                    fetchWithTimeout(refUrlData)
+                ]);
+
+                if (refRes.status === 'fulfilled' && refRes.value) {
+                    parseReferenceRows(refRes.value);
+                    localStorage.setItem('smartfleet_ref_csv', JSON.stringify(refRes.value));
+                }
+
+                if (mainRes.status === 'fulfilled' && mainRes.value) {
+                    processRawRows(mainRes.value);
+                    localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes.value));
+                    statusEl.innerText = '✓ Live CSV & SOS Guide Synced';
                     statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
                 }
             } catch (err) {
                 console.warn("Live fetch error:", err);
                 const cachedMain = localStorage.getItem('smartfleet_main_csv');
+                const cachedRef = localStorage.getItem('smartfleet_ref_csv');
                 if (cachedMain) {
+                    if (cachedRef) parseReferenceRows(JSON.parse(cachedRef));
                     processRawRows(JSON.parse(cachedMain));
                     statusEl.innerText = '✓ Loaded Offline Cache';
                     statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
@@ -158,29 +191,110 @@
             }
         }
 
-        function handleLocalFile(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    if (results.data && results.data.length > 0) processRawRows(results.data);
+        function parseReferenceRows(refRows) {
+            if (!refRows || refRows.length === 0) return;
+            referenceRecMap = {};
+            refRows.forEach(r => {
+                let keys = Object.keys(r);
+                let sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
+                let unitKey = keys.find(k => /unit|asset|equipment/i.test(k));
+                let compKey = keys.find(k => /component|komponen|assembly/i.test(k));
+                let recKey = keys.find(k => /eval|recommendation|rekomendasi|comment|evaluation|text/i.test(k));
+
+                if (recKey && r[recKey]) {
+                    let recText = r[recKey].toString().trim();
+                    if (recText && recText !== 'None') {
+                        if (sampleKey && r[sampleKey]) {
+                            referenceRecMap[r[sampleKey].toString().trim()] = recText;
+                        }
+                        if (unitKey && compKey && r[unitKey] && r[compKey]) {
+                            let keyCombo = `${r[unitKey].toString().trim().toUpperCase()}_${r[compKey].toString().trim().toUpperCase()}`;
+                            referenceRecMap[keyCombo] = recText;
+                        }
+                    }
                 }
             });
         }
 
-        function getAiRecommendation(elements, status) {
-            if (!elements || elements === '-') return '-';
-            let rec = `AI Rec: `;
-            if (status.toLowerCase().includes('critical')) {
-                rec += `Elements [${elements}] exceed critical thresholds. Schedule immediate component inspection & oil change!`;
-            } else if (status.toLowerCase().includes('caution') || status.toLowerCase().includes('monitor')) {
-                rec += `Elements [${elements}] are elevated. Perform oil resampling and monitor closely.`;
-            } else {
-                rec += `Elements [${elements}] detected. Inspect filters and record wear trend.`;
+        function handleLocalFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        processRawRows(results.data);
+                        const statusEl = document.getElementById('sync-status');
+                        statusEl.innerText = '✓ Local File Loaded';
+                        statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
+                    }
+                }
+            });
+        }
+
+        // Reliability Engineering & Condition Monitoring AI Recommendation Engine
+        function getReliabilityAiRecommendation(unit, component, sampleId, elements, status) {
+            // 1. Direct SOS Guide Reference Match
+            let keyCombo = `${unit}_${component}`;
+            if (sampleId && referenceRecMap[sampleId]) {
+                return `SOS Guide: ${referenceRecMap[sampleId]}`;
+            } else if (referenceRecMap[keyCombo]) {
+                return `SOS Guide: ${referenceRecMap[keyCombo]}`;
             }
-            return rec;
+
+            if (!elements || elements === '-') return '-';
+
+            // 2. Reliability Engineer & Condition Monitoring Logic
+            let elUpper = elements.toUpperCase();
+            let rec = `CM & Reliability Rec: `;
+            let mechanisms = [];
+            let actions = [];
+
+            // Wear Mechanisms Analysis
+            if (elUpper.includes('SI') && elUpper.includes('AL')) {
+                mechanisms.push("Airborne dirt/silica ingress");
+                actions.push("Inspect air intake seals, breathers, & ducting");
+            } else if (elUpper.includes('SI')) {
+                mechanisms.push("Dirt contamination or silicone sealant leaching");
+                actions.push("Check seal integrity & compartment cleanliness");
+            }
+
+            if (elUpper.includes('CU') && (elUpper.includes('FE') || elUpper.includes('PB') || elUpper.includes('SN'))) {
+                mechanisms.push("Bushing/thrust washer & gear scuffing wear");
+                actions.push("Check filter differential pressure & magnetic plug for spalling");
+            } else if (elUpper.includes('CU')) {
+                mechanisms.push("Bronze/copper component wear or oil cooler core leaching");
+                actions.push("Monitor copper wear rate & verify cooler performance");
+            }
+
+            if (elUpper.includes('FE') && elUpper.includes('CR')) {
+                mechanisms.push("Piston ring/liner or gear contact surface distress");
+                actions.push("Inspect magnetic drain plug & record wear debris trend");
+            } else if (elUpper.includes('FE')) {
+                mechanisms.push("Ferrous gear/shaft/housing wear");
+                actions.push("Check oil filter for steel particles");
+            }
+
+            if (elUpper.includes('PB') || elUpper.includes('SN')) {
+                mechanisms.push("Plain bearing journal sleeve wear");
+                actions.push("Monitor oil pressure & check for bearing fatigue");
+            }
+
+            // Severity Level Directives
+            let stLower = status.toLowerCase();
+            if (stLower.includes('critical')) {
+                let diag = mechanisms.length > 0 ? mechanisms.join(" + ") : "Elevated wear debris";
+                let act = actions.length > 0 ? actions.join(". ") : "Schedule immediate component inspection & fluid change";
+                return `${rec}CRITICAL: Potential ${diag}. ${act}. Change oil/filters immediately and resample in 50 hrs.`;
+            } else if (stLower.includes('caution') || stLower.includes('monitor')) {
+                let diag = mechanisms.length > 0 ? mechanisms.join(" / ") : "Moderate wear concentration";
+                let act = actions.length > 0 ? actions.join(". ") : "Perform resample and check filter media";
+                return `${rec}CAUTION: ${diag} detected. ${act}. Reduce sampling interval by 50%.`;
+            } else {
+                return `${rec}Normal wear trend [${elements}]. Continue standard sampling schedule & monitor filter condition.`;
+            }
         }
 
         function parseWearElements(rawStr) {
@@ -196,11 +310,13 @@
             if (!rows || rows.length === 0) return;
 
             const keys = Object.keys(rows[0]);
+
             const assetKey = keys.find(k => k.trim().toLowerCase() === 'asset id') || keys.find(k => /unit|asset|equipment|serial|no|id/i.test(k)) || keys[0];
             const modelKey = keys.find(k => k.trim().toLowerCase() === 'model') || keys.find(k => /model|type|family|machine/i.test(k));
             const componentKey = keys.find(k => k.trim().toLowerCase() === 'component') || keys.find(k => /component|komponen|assembly|system|part/i.test(k));
             const statusKey = keys.find(k => k.trim().toLowerCase() === 'oil summary health') || keys.find(k => /health|summary|status|rating|kondisi/i.test(k));
             const meterKey = keys.find(k => k.trim().toLowerCase() === 'comp life') || keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
+            const sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
             const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
 
             let unitMap = {};
@@ -217,6 +333,7 @@
                 
                 let modelVal = modelKey && r[modelKey] ? r[modelKey].toString().trim() : 'ALL MODELS';
                 if (modelVal) allUniqueModels.add(modelVal);
+
                 allUniqueComponents.add(comp);
 
                 if (!unitMap[unit]) {
@@ -227,14 +344,14 @@
                     };
                 }
 
-                // Langsung ambil apa adanya dari kolom Oil Summary Health
                 let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : 'Normal';
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
+                let sampleId = sampleKey && r[sampleKey] ? r[sampleKey].toString().trim() : null;
+
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
-                let aiRec = getAiRecommendation(cleanElements, rawStatus);
+                let aiRec = getReliabilityAiRecommendation(unit, comp, sampleId, cleanElements, rawStatus);
 
-                // Set langsung sebagai unique key pemetaan asset + component
                 unitMap[unit].components[comp] = {
                     status: rawStatus,
                     life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
@@ -250,12 +367,14 @@
         function buildMatrixUI(data) {
             const select = document.getElementById('model-filter');
             select.innerHTML = '<option value="ALL">All Models</option>';
+            
             Array.from(allUniqueModels).sort().forEach(m => {
                 let opt = document.createElement('option');
                 opt.value = m;
                 opt.innerText = m;
                 select.appendChild(opt);
             });
+
             renderTable(data);
         }
 
