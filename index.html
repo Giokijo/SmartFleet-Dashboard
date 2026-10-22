@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartFleet Condition Monitoring Dashboard</title>
+    <title>SmartFleet Live Condition Monitoring Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PapaParse for Fast CSV Parsing -->
@@ -15,15 +15,12 @@
         .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
         .comp-cell { width: 180px; min-width: 180px; max-width: 180px; }
 
-        /* Strict Scroll & Freeze Configuration */
         .table-container {
             max-height: 75vh;
             overflow-y: auto;
             overflow-x: auto;
             position: relative;
         }
-
-        /* Freeze Component Headers on Vertical Scroll */
         thead th {
             position: sticky;
             top: 0;
@@ -31,8 +28,6 @@
             background-color: #020617 !important;
             box-shadow: inset 0 -1px 0 #1e293b;
         }
-
-        /* Freeze Asset ID Column on Horizontal Scroll */
         .sticky-asset-col {
             position: sticky;
             left: 0;
@@ -40,8 +35,6 @@
             background-color: #0f172a !important;
             box-shadow: inset -1px 0 0 #1e293b;
         }
-
-        /* Intersecting Top-Left Corner Cell */
         thead th.sticky-asset-col {
             position: sticky;
             top: 0;
@@ -54,13 +47,12 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
 
     <div>
-        <!-- Header Section -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-2xl">
             <div class="flex items-center gap-3">
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Direct Health-Mapping Data Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Mapping Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -77,7 +69,6 @@
             </div>
         </header>
 
-        <!-- Controls & Model Filter Bar -->
         <div class="flex flex-wrap gap-4 mb-6 bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl items-center justify-between">
             <div class="flex items-center gap-3 w-full md:w-auto">
                 <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Filter Model:</label>
@@ -88,25 +79,19 @@
             <div id="unit-counter" class="text-xs text-slate-400 font-medium">Processing records...</div>
         </div>
 
-        <!-- Fleet Level Exceeded Summary Bar -->
         <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 mb-6 shadow-xl">
             <h2 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">⚡ Fleet Status Exceeded (Sum per Component Assembly)</h2>
-            <div id="sos-sum-bar" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 text-center text-xs">
-                <!-- Dynamically populated component sum cells -->
-            </div>
+            <div id="sos-sum-bar" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 text-center text-xs"></div>
         </div>
 
-        <!-- Main Matrix Table -->
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 Direct Source Status Mapping Active</span>
+                <span class="text-[10px] text-slate-400">💡 Direct element Mapping</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
-                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider">
-                        <!-- Dynamic Headers -->
-                    </thead>
+                    <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider"></thead>
                     <tbody id="matrix-body" class="divide-y divide-slate-800/80">
                         <tr><td id="status-cell" colspan="20" class="p-6 text-center text-slate-400">Loading dashboard...</td></tr>
                     </tbody>
@@ -115,13 +100,11 @@
         </div>
     </div>
 
-    <!-- Footer Signature -->
     <footer class="text-center mt-10 mb-2">
         <p class="text-[11px] font-mono text-slate-500 tracking-wider">bdw@2026</p>
     </footer>
 
     <script>
-        // Force refresh URL with cache-busting timestamp
         const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
 
         let globalFleetData = [];
@@ -151,10 +134,7 @@
 
         async function fetchAllData(forceRefresh = true) {
             const statusEl = document.getElementById('sync-status');
-            
-            if (forceRefresh) {
-                localStorage.removeItem('smartfleet_main_csv');
-            }
+            if (forceRefresh) localStorage.removeItem('smartfleet_main_csv');
 
             statusEl.innerText = 'Syncing Live CSV...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
@@ -181,17 +161,11 @@
         function handleLocalFile(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    if (results.data && results.data.length > 0) {
-                        processRawRows(results.data);
-                        const statusEl = document.getElementById('sync-status');
-                        statusEl.innerText = '✓ Local File Loaded';
-                        statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
-                    }
+                    if (results.data && results.data.length > 0) processRawRows(results.data);
                 }
             });
         }
@@ -199,9 +173,9 @@
         function getAiRecommendation(elements, status) {
             if (!elements || elements === '-') return '-';
             let rec = `AI Rec: `;
-            if (status === 'Critical') {
+            if (status.toLowerCase().includes('critical')) {
                 rec += `Elements [${elements}] exceed critical thresholds. Schedule immediate component inspection & oil change!`;
-            } else if (status === 'Caution') {
+            } else if (status.toLowerCase().includes('caution') || status.toLowerCase().includes('monitor')) {
                 rec += `Elements [${elements}] are elevated. Perform oil resampling and monitor closely.`;
             } else {
                 rec += `Elements [${elements}] detected. Inspect filters and record wear trend.`;
@@ -222,13 +196,9 @@
             if (!rows || rows.length === 0) return;
 
             const keys = Object.keys(rows[0]);
-
-            // Precise Column Key Mapping
             const assetKey = keys.find(k => k.trim().toLowerCase() === 'asset id') || keys.find(k => /unit|asset|equipment|serial|no|id/i.test(k)) || keys[0];
             const modelKey = keys.find(k => k.trim().toLowerCase() === 'model') || keys.find(k => /model|type|family|machine/i.test(k));
             const componentKey = keys.find(k => k.trim().toLowerCase() === 'component') || keys.find(k => /component|komponen|assembly|system|part/i.test(k));
-            
-            // Explicitly match "Oil Summary Health" column Q
             const statusKey = keys.find(k => k.trim().toLowerCase() === 'oil summary health') || keys.find(k => /health|summary|status|rating|kondisi/i.test(k));
             const meterKey = keys.find(k => k.trim().toLowerCase() === 'comp life') || keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
             const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
@@ -247,7 +217,6 @@
                 
                 let modelVal = modelKey && r[modelKey] ? r[modelKey].toString().trim() : 'ALL MODELS';
                 if (modelVal) allUniqueModels.add(modelVal);
-
                 allUniqueComponents.add(comp);
 
                 if (!unitMap[unit]) {
@@ -258,29 +227,16 @@
                     };
                 }
 
+                // Langsung ambil apa adanya dari kolom Oil Summary Health
                 let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : 'Normal';
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
-
-                // Strict Status Determination
-                let status = "Normal";
-                let stUpper = rawStatus.toUpperCase();
-
-                if (stUpper.includes("CRITICAL") || stUpper === "C" || stUpper.includes("PARAH")) {
-                    status = "Critical";
-                } else if (stUpper.includes("CAUTION") || stUpper === "B" || stUpper.includes("MONITOR") || stUpper.includes("WASPADA")) {
-                    status = "Caution";
-                } else if (stUpper.includes("NORMAL") || stUpper === "N" || stUpper === "A") {
-                    status = "Normal";
-                } else if (rawStatus !== "") {
-                    status = rawStatus;
-                }
-
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
-                let aiRec = getAiRecommendation(cleanElements, status);
+                let aiRec = getAiRecommendation(cleanElements, rawStatus);
 
+                // Set langsung sebagai unique key pemetaan asset + component
                 unitMap[unit].components[comp] = {
-                    status: status,
+                    status: rawStatus,
                     life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
                     elements: cleanElements,
                     recommendation: aiRec
@@ -294,14 +250,12 @@
         function buildMatrixUI(data) {
             const select = document.getElementById('model-filter');
             select.innerHTML = '<option value="ALL">All Models</option>';
-            
             Array.from(allUniqueModels).sort().forEach(m => {
                 let opt = document.createElement('option');
                 opt.value = m;
                 opt.innerText = m;
                 select.appendChild(opt);
             });
-
             renderTable(data);
         }
 
@@ -396,7 +350,6 @@
             bar.innerHTML = barHTML;
         }
 
-        // Run with force refresh active on load
         fetchAllData(true);
     </script>
 </body>
