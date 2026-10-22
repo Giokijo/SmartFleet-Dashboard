@@ -60,7 +60,7 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Reliability Engineering & Condition Monitoring AI Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">SOS Library and API Key Mapping Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -100,7 +100,7 @@
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 SOS Library + Reliability Engineering AI Integration</span>
+                <span class="text-[10px] text-slate-400">💡 SOS Guide Action Required Column Mapping</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -125,7 +125,7 @@
         const refUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_DtcF1BsuBTnWOyynTItBnOtKyJE99AD33kHM5A_Uu46FRHPvzFYRYOIUCLWmeQ/pub?output=csv&t=" + new Date().getTime();
 
         let globalFleetData = [];
-        let referenceRecMap = {};
+        let referenceActionMap = {};
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
 
@@ -193,23 +193,28 @@
 
         function parseReferenceRows(refRows) {
             if (!refRows || refRows.length === 0) return;
-            referenceRecMap = {};
+            referenceActionMap = {};
+
             refRows.forEach(r => {
                 let keys = Object.keys(r);
+                
+                // Cari kolom yang merepresentasikan "Action Required" atau Evaluasi/Rekomendasi
+                let actionKey = keys.find(k => /action|required|eval|recommendation|rekomendasi|comment|evaluation|text/i.test(k));
                 let sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
                 let unitKey = keys.find(k => /unit|asset|equipment/i.test(k));
                 let compKey = keys.find(k => /component|komponen|assembly/i.test(k));
-                let recKey = keys.find(k => /eval|recommendation|rekomendasi|comment|evaluation|text/i.test(k));
 
-                if (recKey && r[recKey]) {
-                    let recText = r[recKey].toString().trim();
-                    if (recText && recText !== 'None') {
+                if (actionKey && r[actionKey]) {
+                    let actionText = r[actionKey].toString().trim();
+                    if (actionText && actionText !== 'None' && actionText !== '') {
+                        // Simpan berdasarkan ID sampel jika ada
                         if (sampleKey && r[sampleKey]) {
-                            referenceRecMap[r[sampleKey].toString().trim()] = recText;
+                            referenceActionMap[r[sampleKey].toString().trim()] = actionText;
                         }
+                        // Simpan berdasarkan kombinasi unik Asset ID + Component
                         if (unitKey && compKey && r[unitKey] && r[compKey]) {
                             let keyCombo = `${r[unitKey].toString().trim().toUpperCase()}_${r[compKey].toString().trim().toUpperCase()}`;
-                            referenceRecMap[keyCombo] = recText;
+                            referenceActionMap[keyCombo] = actionText;
                         }
                     }
                 }
@@ -232,69 +237,6 @@
                     }
                 }
             });
-        }
-
-        // Reliability Engineering & Condition Monitoring AI Recommendation Engine
-        function getReliabilityAiRecommendation(unit, component, sampleId, elements, status) {
-            // 1. Direct SOS Guide Reference Match
-            let keyCombo = `${unit}_${component}`;
-            if (sampleId && referenceRecMap[sampleId]) {
-                return `SOS Guide: ${referenceRecMap[sampleId]}`;
-            } else if (referenceRecMap[keyCombo]) {
-                return `SOS Guide: ${referenceRecMap[keyCombo]}`;
-            }
-
-            if (!elements || elements === '-') return '-';
-
-            // 2. Reliability Engineer & Condition Monitoring Logic
-            let elUpper = elements.toUpperCase();
-            let rec = `CM & Reliability Rec: `;
-            let mechanisms = [];
-            let actions = [];
-
-            // Wear Mechanisms Analysis
-            if (elUpper.includes('SI') && elUpper.includes('AL')) {
-                mechanisms.push("Airborne dirt/silica ingress");
-                actions.push("Inspect air intake seals, breathers, & ducting");
-            } else if (elUpper.includes('SI')) {
-                mechanisms.push("Dirt contamination or silicone sealant leaching");
-                actions.push("Check seal integrity & compartment cleanliness");
-            }
-
-            if (elUpper.includes('CU') && (elUpper.includes('FE') || elUpper.includes('PB') || elUpper.includes('SN'))) {
-                mechanisms.push("Bushing/thrust washer & gear scuffing wear");
-                actions.push("Check filter differential pressure & magnetic plug for spalling");
-            } else if (elUpper.includes('CU')) {
-                mechanisms.push("Bronze/copper component wear or oil cooler core leaching");
-                actions.push("Monitor copper wear rate & verify cooler performance");
-            }
-
-            if (elUpper.includes('FE') && elUpper.includes('CR')) {
-                mechanisms.push("Piston ring/liner or gear contact surface distress");
-                actions.push("Inspect magnetic drain plug & record wear debris trend");
-            } else if (elUpper.includes('FE')) {
-                mechanisms.push("Ferrous gear/shaft/housing wear");
-                actions.push("Check oil filter for steel particles");
-            }
-
-            if (elUpper.includes('PB') || elUpper.includes('SN')) {
-                mechanisms.push("Plain bearing journal sleeve wear");
-                actions.push("Monitor oil pressure & check for bearing fatigue");
-            }
-
-            // Severity Level Directives
-            let stLower = status.toLowerCase();
-            if (stLower.includes('critical')) {
-                let diag = mechanisms.length > 0 ? mechanisms.join(" + ") : "Elevated wear debris";
-                let act = actions.length > 0 ? actions.join(". ") : "Schedule immediate component inspection & fluid change";
-                return `${rec}CRITICAL: Potential ${diag}. ${act}. Change oil/filters immediately and resample in 50 hrs.`;
-            } else if (stLower.includes('caution') || stLower.includes('monitor')) {
-                let diag = mechanisms.length > 0 ? mechanisms.join(" / ") : "Moderate wear concentration";
-                let act = actions.length > 0 ? actions.join(". ") : "Perform resample and check filter media";
-                return `${rec}CAUTION: ${diag} detected. ${act}. Reduce sampling interval by 50%.`;
-            } else {
-                return `${rec}Normal wear trend [${elements}]. Continue standard sampling schedule & monitor filter condition.`;
-            }
         }
 
         function parseWearElements(rawStr) {
@@ -347,16 +289,26 @@
                 let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : 'Normal';
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
                 let sampleId = sampleKey && r[sampleKey] ? r[sampleKey].toString().trim() : null;
-
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
-                let aiRec = getReliabilityAiRecommendation(unit, comp, sampleId, cleanElements, rawStatus);
+
+                // Ambil langsung teks dari kolom Action Required SOS Guide berdasarkan kombinasi unik Asset_Component atau Sample ID
+                let keyCombo = `${unit}_${comp}`;
+                let actionRequiredText = '-';
+                
+                if (sampleId && referenceActionMap[sampleId]) {
+                    actionRequiredText = referenceActionMap[sampleId];
+                } else if (referenceActionMap[keyCombo]) {
+                    actionRequiredText = referenceActionMap[keyCombo];
+                } else if (cleanElements !== '-') {
+                    actionRequiredText = `Action: Monitor wear elements [${cleanElements}]. Check filters and compartment condition.`;
+                }
 
                 unitMap[unit].components[comp] = {
                     status: rawStatus,
                     life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
                     elements: cleanElements,
-                    recommendation: aiRec
+                    actionRequired: actionRequiredText
                 };
             });
 
@@ -428,7 +380,7 @@
                         let elementDisplay = (compData.elements && compData.elements !== '-') 
                             ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-1 text-[9px]">
                                  <span class="font-extrabold text-rose-300 block">⚠️ ${compData.elements}</span>
-                                 <span class="text-[8px] text-slate-300 block mt-0.5 leading-tight">${compData.recommendation}</span>
+                                 <span class="text-[8px] text-slate-300 block mt-0.5 leading-tight">${compData.actionRequired}</span>
                                </div>` 
                             : `<div class="mt-1 text-[9px] text-slate-400 text-center">-</div>`;
 
