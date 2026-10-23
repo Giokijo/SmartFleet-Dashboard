@@ -12,7 +12,7 @@
         .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
-        .badge-nodata { background-color: #1e293b; color: #64748b; border: 1px dashed #334155; }
+        .badge-waiting { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; } /* Green badge for Waiting Result */
         .comp-cell { width: 180px; min-width: 180px; max-width: 180px; }
 
         /* Strict Scroll & Freeze Configuration */
@@ -60,7 +60,7 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">SOS Library and API Key Mapping Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Client Custom Order Engine Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -100,7 +100,7 @@
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 SOS Guide Action Required Column Mapping</span>
+                <span class="text-[10px] text-slate-400">💡 Custom Sorting & Waiting Result Filters Active</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -117,7 +117,7 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-10 mb-2">
-        <p class="text-[11px] font-mono text-slate-500 tracking-wider">bdw@2026</p>
+        <p class="text-[11px] font-mono text-slate-500 tracking-wider">bernado@2026</p>
     </footer>
 
     <script>
@@ -128,6 +128,26 @@
         let referenceActionMap = {};
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
+
+        // Exact requested component header sort order sequence
+        const preferredComponentOrder = [
+            "ENGINE",
+            "TORQUE CONVERTER",
+            "TRANSMISSION",
+            "DIFFERENTIAL FRONT",
+            "WHEEL BEARINGS FRONT LEFT",
+            "WHEEL BEARINGS FRONT RIGHT",
+            "DIFFERENTIAL REAR",
+            "FINAL DRIVE REAR LEFT",
+            "FINAL DRIVE REAR RIGHT",
+            "TANDEM LEFT",
+            "TANDEM RIGHT",
+            "PUMP DRIVE",
+            "SWING DRIVE LEFT",
+            "SWING DRIVE RIGHT",
+            "STEERING SYSTEM",
+            "HYDRAULIC SYSTEM"
+        ];
 
         async function fetchWithTimeout(url, timeoutMs = 4000) {
             const controller = new AbortController();
@@ -197,8 +217,6 @@
 
             refRows.forEach(r => {
                 let keys = Object.keys(r);
-                
-                // Cari kolom yang merepresentasikan "Action Required" atau Evaluasi/Rekomendasi
                 let actionKey = keys.find(k => /action|required|eval|recommendation|rekomendasi|comment|evaluation|text/i.test(k));
                 let sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
                 let unitKey = keys.find(k => /unit|asset|equipment/i.test(k));
@@ -207,11 +225,9 @@
                 if (actionKey && r[actionKey]) {
                     let actionText = r[actionKey].toString().trim();
                     if (actionText && actionText !== 'None' && actionText !== '') {
-                        // Simpan berdasarkan ID sampel jika ada
                         if (sampleKey && r[sampleKey]) {
                             referenceActionMap[r[sampleKey].toString().trim()] = actionText;
                         }
-                        // Simpan berdasarkan kombinasi unik Asset ID + Component
                         if (unitKey && compKey && r[unitKey] && r[compKey]) {
                             let keyCombo = `${r[unitKey].toString().trim().toUpperCase()}_${r[compKey].toString().trim().toUpperCase()}`;
                             referenceActionMap[keyCombo] = actionText;
@@ -286,13 +302,17 @@
                     };
                 }
 
-                let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : 'Normal';
+                let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : '';
+                // If status is empty or N/A, assign "Waiting Result"
+                if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '') {
+                    rawStatus = 'Waiting Result';
+                }
+
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
                 let sampleId = sampleKey && r[sampleKey] ? r[sampleKey].toString().trim() : null;
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
 
-                // Ambil langsung teks dari kolom Action Required SOS Guide berdasarkan kombinasi unik Asset_Component atau Sample ID
                 let keyCombo = `${unit}_${comp}`;
                 let actionRequiredText = '-';
                 
@@ -318,6 +338,7 @@
 
         function buildMatrixUI(data) {
             const select = document.getElementById('model-filter');
+            const currentSelected = select.value;
             select.innerHTML = '<option value="ALL">All Models</option>';
             
             Array.from(allUniqueModels).sort().forEach(m => {
@@ -326,6 +347,7 @@
                 opt.innerText = m;
                 select.appendChild(opt);
             });
+            if (currentSelected) select.value = currentSelected;
 
             renderTable(data);
         }
@@ -333,16 +355,53 @@
         function filterTable() {
             const selectedModel = document.getElementById('model-filter').value;
             const filtered = selectedModel === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === selectedModel);
-            renderTable(filtered);
+            renderTable(filtered, selectedModel);
         }
 
-        function renderTable(data) {
-            const compList = Array.from(allUniqueComponents).sort();
+        function getSortedComponents() {
+            let allComps = Array.from(allUniqueComponents);
+            return allComps.sort((a, b) => {
+                let indexA = preferredComponentOrder.indexOf(a);
+                let indexB = preferredComponentOrder.indexOf(b);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+        }
+
+        function renderTable(data, selectedModel = 'ALL') {
+            let compList = getSortedComponents();
+
+            // Client Request: Hide component headers if ALL values for that component in the selected model equal "Waiting Result"
+            let hiddenComponents = new Set();
+            if (selectedModel !== 'ALL') {
+                compList.forEach(comp => {
+                    let allWaiting = true;
+                    if (data.length === 0) {
+                        allWaiting = false;
+                    } else {
+                        data.forEach(row => {
+                            let compData = row.components[comp];
+                            let status = compData ? compData.status : 'Waiting Result';
+                            if (status !== 'Waiting Result') {
+                                allWaiting = false;
+                            }
+                        });
+                    }
+                    if (allWaiting) {
+                        hiddenComponents.add(comp);
+                    }
+                });
+            }
+
+            // Filter out hidden components from the rendering list
+            let activeCompList = compList.filter(c => !hiddenComponents.has(c));
 
             const head = document.getElementById('matrix-head');
             let headHTML = `<tr>
                 <th class="p-3 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID / Model</th>`;
-            compList.forEach(c => {
+            activeCompList.forEach(c => {
                 headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`;
             });
             headHTML += `</tr>`;
@@ -352,7 +411,7 @@
             body.innerHTML = '';
 
             let sosSum = {};
-            compList.forEach(c => sosSum[c] = 0);
+            activeCompList.forEach(c => sosSum[c] = 0);
 
             data.forEach(row => {
                 let tr = document.createElement('tr');
@@ -365,7 +424,7 @@
                     </td>
                 `;
 
-                compList.forEach(comp => {
+                activeCompList.forEach(comp => {
                     let compData = row.components[comp];
                     if (compData) {
                         let stLower = compData.status.toLowerCase();
@@ -376,6 +435,7 @@
                         let badgeClass = 'badge-normal';
                         if (stLower.includes('critical')) badgeClass = 'badge-critical';
                         else if (stLower.includes('caution') || stLower.includes('monitor')) badgeClass = 'badge-caution';
+                        else if (stLower.includes('waiting')) badgeClass = 'badge-waiting';
                         
                         let elementDisplay = (compData.elements && compData.elements !== '-') 
                             ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-1 text-[9px]">
@@ -398,8 +458,11 @@
                     } else {
                         rowHTML += `
                             <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
-                                <div class="px-2 py-2 rounded-lg text-[10px] badge-nodata font-semibold flex flex-col justify-between min-h-[75px] shadow-sm">
-                                    <span class="text-[9px] text-slate-500">N/A</span>
+                                <div class="px-2 py-2 rounded-lg text-[10px] badge-waiting font-semibold flex flex-col justify-between min-h-[75px] shadow-sm">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold">Waiting Result</span>
+                                    </div>
+                                    <div class="mt-1 text-[9px] text-slate-500 text-center">-</div>
                                 </div>
                             </td>
                         `;
@@ -413,9 +476,9 @@
             document.getElementById('unit-counter').innerText = `Showing ${data.length} Fleet Units`;
 
             const bar = document.getElementById('sos-sum-bar');
-            bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-${Math.min(compList.length || 1, 12)} gap-2 text-center text-xs`;
+            bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-${Math.min(activeCompList.length || 1, 12)} gap-2 text-center text-xs`;
             let barHTML = '';
-            compList.forEach(c => {
+            activeCompList.forEach(c => {
                 barHTML += `<div class="bg-slate-800 p-2 rounded-lg border border-slate-700"><span class="text-slate-400 block text-[9px] truncate">${c}</span><span class="text-sm font-bold text-amber-400">${sosSum[c]}</span></div>`;
             });
             bar.innerHTML = barHTML;
