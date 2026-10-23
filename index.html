@@ -60,7 +60,7 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5"> Update rev 4.3 Engine Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Rev 4.4 Rounded Component Life Engine Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -100,7 +100,7 @@
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 Element and Library rec</span>
+                <span class="text-[10px] text-slate-400">💡 Rounded Integer Comp Life • Sorted Assets</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -223,6 +223,16 @@
             return parts.length > 0 ? parts.join(', ') : '-';
         }
 
+        // Standard rounding function (1111.6 => 1112, 1111.49 => 1111)
+        function formatRoundedHours(valStr) {
+            if (!valStr || valStr === '-' || valStr === '#N/A') return '-';
+            // Replace comma separators and European decimal commas
+            let cleanStr = valStr.toString().replace(/,/g, '.');
+            let num = parseFloat(cleanStr);
+            if (isNaN(num)) return valStr;
+            return Math.round(num).toString() + ' hrs';
+        }
+
         function processRawRows(rows) {
             if (!rows || rows.length === 0) return;
 
@@ -273,7 +283,10 @@
                     isWaiting = true;
                 }
 
-                let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim().replace(/,/g, '') : '-';
+                // Process rounded hours
+                let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
+                let roundedLife = formatRoundedHours(rawMeter);
+
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
 
@@ -289,7 +302,7 @@
 
                 unitMap[unit].components[comp] = {
                     status: rawStatus,
-                    life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
+                    life: roundedLife,
                     elements: cleanElements,
                     action: actionVal,
                     tooltip: tooltipVal,
@@ -297,7 +310,7 @@
                 };
             });
 
-            // Convert to array and sort Asset IDs ascending naturally (e.g., DT090001 to DT090013)
+            // Sort Asset IDs ascending
             globalFleetData = Object.values(unitMap).sort((a, b) => {
                 return a.assetId.localeCompare(b.assetId, undefined, { numeric: true, sensitivity: 'base' });
             });
