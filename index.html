@@ -12,7 +12,7 @@
         .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
-        .badge-waiting { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; } /* Green badge for Waiting Result */
+        .badge-waiting { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
         .comp-cell { width: 180px; min-width: 180px; max-width: 180px; }
 
         /* Strict Scroll & Freeze Configuration */
@@ -60,7 +60,7 @@
                 <span class="text-3xl">🚜</span>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Rev 4.1 Engine Active</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Rev. 4.1 Engine Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -80,7 +80,7 @@
         <!-- Controls & Model Filter Bar -->
         <div class="flex flex-wrap gap-4 mb-6 bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl items-center justify-between">
             <div class="flex items-center gap-3 w-full md:w-auto">
-                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Filter Model:</label>
+                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Filter Model / Equipment:</label>
                 <select id="model-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500">
                     <option value="ALL">All Models</option>
                 </select>
@@ -100,7 +100,7 @@
         <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] text-slate-400">💡 Custom Sorting & Waiting Result Filters Active</span>
+                <span class="text-[10px] text-slate-400">💡 Hover box for Tooltips • Direct Action Mapping</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -122,14 +122,12 @@
 
     <script>
         const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
-        const refUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_DtcF1BsuBTnWOyynTItBnOtKyJE99AD33kHM5A_Uu46FRHPvzFYRYOIUCLWmeQ/pub?output=csv&t=" + new Date().getTime();
 
         let globalFleetData = [];
-        let referenceActionMap = {};
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
 
-        // Exact requested component header sort order sequence
+        // Exact requested component header sort sequence
         const preferredComponentOrder = [
             "ENGINE",
             "TORQUE CONVERTER",
@@ -175,66 +173,28 @@
             
             if (forceRefresh) {
                 localStorage.removeItem('smartfleet_main_csv');
-                localStorage.removeItem('smartfleet_ref_csv');
             }
 
-            statusEl.innerText = 'Syncing Live CSV & SOS Guide...';
+            statusEl.innerText = 'Syncing Live CSV...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
             try {
-                const [mainRes, refRes] = await Promise.allSettled([
-                    fetchWithTimeout(mainUrlData),
-                    fetchWithTimeout(refUrlData)
-                ]);
-
-                if (refRes.status === 'fulfilled' && refRes.value) {
-                    parseReferenceRows(refRes.value);
-                    localStorage.setItem('smartfleet_ref_csv', JSON.stringify(refRes.value));
-                }
-
-                if (mainRes.status === 'fulfilled' && mainRes.value) {
-                    processRawRows(mainRes.value);
-                    localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes.value));
-                    statusEl.innerText = '✓ Live CSV & SOS Guide Synced';
+                const mainRes = await fetchWithTimeout(mainUrlData);
+                if (mainRes && mainRes.length > 0) {
+                    processRawRows(mainRes);
+                    localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes));
+                    statusEl.innerText = '✓ Live CSV Synced';
                     statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
                 }
             } catch (err) {
                 console.warn("Live fetch error:", err);
                 const cachedMain = localStorage.getItem('smartfleet_main_csv');
-                const cachedRef = localStorage.getItem('smartfleet_ref_csv');
                 if (cachedMain) {
-                    if (cachedRef) parseReferenceRows(JSON.parse(cachedRef));
                     processRawRows(JSON.parse(cachedMain));
                     statusEl.innerText = '✓ Loaded Offline Cache';
                     statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
                 }
             }
-        }
-
-        function parseReferenceRows(refRows) {
-            if (!refRows || refRows.length === 0) return;
-            referenceActionMap = {};
-
-            refRows.forEach(r => {
-                let keys = Object.keys(r);
-                let actionKey = keys.find(k => /action|required|eval|recommendation|rekomendasi|comment|evaluation|text/i.test(k));
-                let sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
-                let unitKey = keys.find(k => /unit|asset|equipment/i.test(k));
-                let compKey = keys.find(k => /component|komponen|assembly/i.test(k));
-
-                if (actionKey && r[actionKey]) {
-                    let actionText = r[actionKey].toString().trim();
-                    if (actionText && actionText !== 'None' && actionText !== '') {
-                        if (sampleKey && r[sampleKey]) {
-                            referenceActionMap[r[sampleKey].toString().trim()] = actionText;
-                        }
-                        if (unitKey && compKey && r[unitKey] && r[compKey]) {
-                            let keyCombo = `${r[unitKey].toString().trim().toUpperCase()}_${r[compKey].toString().trim().toUpperCase()}`;
-                            referenceActionMap[keyCombo] = actionText;
-                        }
-                    }
-                }
-            });
         }
 
         function handleLocalFile(event) {
@@ -269,13 +229,18 @@
 
             const keys = Object.keys(rows[0]);
 
-            const assetKey = keys.find(k => k.trim().toLowerCase() === 'asset id') || keys.find(k => /unit|asset|equipment|serial|no|id/i.test(k)) || keys[0];
+            // Column Key Detection
+            const assetKey = keys.find(k => k.trim().toLowerCase() === 'asset id') || keys.find(k => /unit|asset|equipment|id/i.test(k)) || keys[0];
+            const serialKey = keys.find(k => /serial.*no|serial|sn|s\/n/i.test(k));
             const modelKey = keys.find(k => k.trim().toLowerCase() === 'model') || keys.find(k => /model|type|family|machine/i.test(k));
             const componentKey = keys.find(k => k.trim().toLowerCase() === 'component') || keys.find(k => /component|komponen|assembly|system|part/i.test(k));
             const statusKey = keys.find(k => k.trim().toLowerCase() === 'oil summary health') || keys.find(k => /health|summary|status|rating|kondisi/i.test(k));
             const meterKey = keys.find(k => k.trim().toLowerCase() === 'comp life') || keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
-            const sampleKey = keys.find(k => /sample|lab|id|no/i.test(k));
             const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
+            
+            // Explicit Column Key Detection for Action & Tooltip in SOS Trend
+            const actionKey = keys.find(k => k.trim().toLowerCase() === 'action') || keys.find(k => /action|rekomendasi|recommendation|eval/i.test(k));
+            const tooltipKey = keys.find(k => /tooltip|tooltips|comment|note/i.test(k));
 
             let unitMap = {};
             allUniqueComponents.clear();
@@ -290,45 +255,46 @@
                 comp = comp.toString().trim().toUpperCase();
                 
                 let modelVal = modelKey && r[modelKey] ? r[modelKey].toString().trim() : 'ALL MODELS';
-                if (modelVal) allUniqueModels.add(modelVal);
+                let serialVal = serialKey && r[serialKey] ? r[serialKey].toString().trim() : '-';
 
+                if (modelVal) allUniqueModels.add(modelVal);
                 allUniqueComponents.add(comp);
 
                 if (!unitMap[unit]) {
                     unitMap[unit] = {
                         assetId: unit,
                         model: modelVal,
+                        serialNo: serialVal,
                         components: {}
                     };
                 }
 
                 let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : '';
-                // If status is empty or N/A, assign "Waiting Result"
                 if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '') {
                     rawStatus = 'Waiting Result';
                 }
 
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
-                let sampleId = sampleKey && r[sampleKey] ? r[sampleKey].toString().trim() : null;
                 let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
                 let cleanElements = parseWearElements(rawElementVal);
 
-                let keyCombo = `${unit}_${comp}`;
-                let actionRequiredText = '-';
-                
-                if (sampleId && referenceActionMap[sampleId]) {
-                    actionRequiredText = referenceActionMap[sampleId];
-                } else if (referenceActionMap[keyCombo]) {
-                    actionRequiredText = referenceActionMap[keyCombo];
-                } else if (cleanElements !== '-') {
-                    actionRequiredText = `Action: Monitor wear elements [${cleanElements}]. Check filters and compartment condition.`;
+                // Direct extraction from ACTION & TOOLTIPS columns
+                let actionVal = actionKey && r[actionKey] ? r[actionKey].toString().trim() : '';
+                if (!actionVal && cleanElements !== '-') {
+                    actionVal = `Monitor wear elements [${cleanElements}].`;
+                }
+
+                let tooltipVal = tooltipKey && r[tooltipKey] ? r[tooltipKey].toString().trim() : '';
+                if (!tooltipVal) {
+                    tooltipVal = actionVal ? `${comp} (${rawStatus}): ${actionVal}` : `${comp} Status: ${rawStatus}`;
                 }
 
                 unitMap[unit].components[comp] = {
                     status: rawStatus,
                     life: rawMeter !== '-' ? rawMeter + (isNaN(rawMeter) ? '' : ' hrs') : '-',
                     elements: cleanElements,
-                    actionRequired: actionRequiredText
+                    action: actionVal,
+                    tooltip: tooltipVal
                 };
             });
 
@@ -373,7 +339,7 @@
         function renderTable(data, selectedModel = 'ALL') {
             let compList = getSortedComponents();
 
-            // Client Request: Hide component headers if ALL values for that component in the selected model equal "Waiting Result"
+            // Hide component headers if ALL values for that component in selected model equal "Waiting Result"
             let hiddenComponents = new Set();
             if (selectedModel !== 'ALL') {
                 compList.forEach(comp => {
@@ -395,12 +361,11 @@
                 });
             }
 
-            // Filter out hidden components from the rendering list
             let activeCompList = compList.filter(c => !hiddenComponents.has(c));
 
             const head = document.getElementById('matrix-head');
             let headHTML = `<tr>
-                <th class="p-3 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID / Model</th>`;
+                <th class="p-3 text-blue-200 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID / Model / S/N</th>`;
             activeCompList.forEach(c => {
                 headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`;
             });
@@ -420,7 +385,8 @@
                 let rowHTML = `
                     <td class="p-3 font-extrabold text-white text-sm tracking-wide border-r border-blue-900/60 w-36 min-w-[144px] sticky-asset-col">
                         <div>${row.assetId}</div>
-                        <div class="text-[10px] font-normal text-blue-300 opacity-80">${row.model}</div>
+                        <div class="text-[10px] font-normal text-blue-300 opacity-90">${row.model}</div>
+                        <div class="text-[9px] font-mono text-slate-400 opacity-75">S/N: ${row.serialNo}</div>
                     </td>
                 `;
 
@@ -437,16 +403,18 @@
                         else if (stLower.includes('caution') || stLower.includes('monitor')) badgeClass = 'badge-caution';
                         else if (stLower.includes('waiting')) badgeClass = 'badge-waiting';
                         
+                        // Action display inside the component box
                         let elementDisplay = (compData.elements && compData.elements !== '-') 
                             ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-1 text-[9px]">
                                  <span class="font-extrabold text-rose-300 block">⚠️ ${compData.elements}</span>
-                                 <span class="text-[8px] text-slate-300 block mt-0.5 leading-tight">${compData.actionRequired}</span>
+                                 <span class="text-[8px] text-slate-300 block mt-0.5 leading-tight">${compData.action}</span>
                                </div>` 
-                            : `<div class="mt-1 text-[9px] text-slate-400 text-center">-</div>`;
+                            : (compData.action ? `<div class="mt-1 text-[8px] text-slate-300 block leading-tight">${compData.action}</div>` : `<div class="mt-1 text-[9px] text-slate-400 text-center">-</div>`);
 
+                        // Tooltip attribute title applied directly on the box container
                         rowHTML += `
                             <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
-                                <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[75px]">
+                                <div title="${compData.tooltip.replace(/"/g, '&quot;')}" class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[75px] cursor-help">
                                     <div class="flex justify-between items-center">
                                         <span class="font-bold">${compData.status}</span>
                                         <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/80 px-1 rounded">${compData.life}</span>
@@ -458,7 +426,7 @@
                     } else {
                         rowHTML += `
                             <td class="p-2.5 border-r border-slate-800/80 comp-cell align-top">
-                                <div class="px-2 py-2 rounded-lg text-[10px] badge-waiting font-semibold flex flex-col justify-between min-h-[75px] shadow-sm">
+                                <div title="No sample available for ${comp} - Waiting Result" class="px-2 py-2 rounded-lg text-[10px] badge-waiting font-semibold flex flex-col justify-between min-h-[75px] shadow-sm cursor-help">
                                     <div class="flex justify-between items-center">
                                         <span class="font-bold">Waiting Result</span>
                                     </div>
