@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <!-- Chart.js for Visual Health Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2pdf for Full Multi-Page A3 PDF Export -->
+    <!-- html2pdf for A3 PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         /* Theme Configurations */
@@ -103,7 +103,7 @@
             background-color: var(--sticky-head) !important;
         }
 
-        /* Print / PDF Override Styles to capture ALL data without clipping */
+        /* PDF Export Mode Override */
         .pdf-export-mode .table-container {
             max-height: none !important;
             overflow: visible !important;
@@ -134,7 +134,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.8 Condition Monitoring & Reliability Report</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Condition Monitoring & Filtered Reliability Report</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -195,18 +195,31 @@
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-800/40 flex justify-between items-center">
                     <div id="unit-counter" class="text-xs theme-text-sub font-medium">Processing records...</div>
-                    <span class="text-[10px] theme-text-sub">Real-time status accumulation active</span>
+                    <span class="text-[10px] theme-text-sub">Rev 4.9 Real-time status accumulation active</span>
                 </div>
             </div>
         </div>
 
-        <!-- Controls & Model Filter Bar -->
+        <!-- Controls, Model Filter & Criteria Filter Bar -->
         <div class="flex flex-wrap gap-4 mb-6 theme-card p-4 rounded-2xl border shadow-xl items-center justify-between">
-            <div class="flex items-center gap-3 w-full md:w-auto">
-                <label class="text-xs font-semibold uppercase tracking-wider">Filter Model:</label>
-                <select id="model-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500">
-                    <option value="ALL">All Models</option>
-                </select>
+            <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                <!-- Model Filter -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-semibold uppercase tracking-wider">Model:</label>
+                    <select id="model-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500">
+                        <option value="ALL">All Models</option>
+                    </select>
+                </div>
+                <!-- Status Criteria Filter -->
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-semibold uppercase tracking-wider">Criteria Status:</label>
+                    <select id="status-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500">
+                        <option value="ALL">All Statuses</option>
+                        <option value="NORMAL">Normal Only</option>
+                        <option value="CAUTION">Caution Only</option>
+                        <option value="CRITICAL">Critical Only</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -214,7 +227,7 @@
         <div id="matrix-wrapper" class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] theme-text-sub">💡 SOS Date • Trend • Work Order Active</span>
+                <span class="text-[10px] theme-text-sub">💡 real time Condition Monitoring Matrix</span>
             </div>
             <div class="table-container">
                 <table id="matrix-table" class="w-full text-left text-xs border-collapse">
@@ -247,8 +260,8 @@
             "TORQUE CONVERTER",
             "TRANSMISSION",
             "DIFFERENTIAL FRONT",
-            "FINAL DRIVE REAR LEFT",
-            "FINAL DRIVE REAR RIGHT",
+            "FINAL DRIVE FRONT LEFT",
+            "FINAL DRIVE FRONT RIGHT",
             "WHEEL BEARINGS FRONT LEFT",
             "WHEEL BEARINGS FRONT RIGHT",
             "DIFFERENTIAL REAR",
@@ -276,26 +289,24 @@
         document.documentElement.setAttribute('data-theme', savedTheme);
         document.getElementById('theme-selector').value = savedTheme;
 
-        // Enhanced PDF Engine: Unwraps table completely for 100% full capture from Engine to Product Link across all rows
         function downloadPdfA3() {
             const container = document.getElementById('export-pdf-container');
             const statusEl = document.getElementById('sync-status');
 
-            statusEl.innerText = 'Compiling Full PDF A3...';
+            statusEl.innerText = 'Compiling Filtered PDF A3...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
-            // Temporarily enable export mode (removes scrollbars & sticky positioning so entire table renders)
             container.classList.add('pdf-export-mode');
 
             const opt = {
                 margin:       [8, 8, 8, 8],
-                filename:     'SmartFleet_Full_Condition_Monitoring_Dashboard.pdf',
+                filename:     'SmartFleet_Filtered_Condition_Report.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
                     scale: 1.5, 
                     useCORS: true, 
                     logging: false,
-                    windowWidth: 2400 // Ensures wide 19-column table does not wrap or truncate
+                    windowWidth: 2400 
                 },
                 jsPDF:        { unit: 'mm', format: 'a3', orientation: 'landscape' },
                 pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
@@ -503,8 +514,25 @@
 
         function filterTable() {
             const selectedModel = document.getElementById('model-filter').value;
+            const selectedStatus = document.getElementById('status-filter').value;
+
             let filtered = selectedModel === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === selectedModel);
-            renderTable(filtered, selectedModel);
+
+            // If a specific status criterion is selected, filter units that have at least one component matching that status
+            if (selectedStatus !== 'ALL') {
+                filtered = filtered.filter(row => {
+                    let hasMatchingStatus = false;
+                    Object.values(row.components).forEach(compData => {
+                        let st = compData.status.toUpperCase();
+                        if (selectedStatus === 'CRITICAL' && st.includes('CRITICAL')) hasMatchingStatus = true;
+                        if (selectedStatus === 'CAUTION' && (st.includes('CAUTION') || st.includes('MONITOR'))) hasMatchingStatus = true;
+                        if (selectedStatus === 'NORMAL' && st.includes('NORMAL')) hasMatchingStatus = true;
+                    });
+                    return hasMatchingStatus;
+                });
+            }
+
+            renderTable(filtered, selectedModel, selectedStatus);
         }
 
         function getSortedComponents() {
@@ -567,7 +595,7 @@
             });
         }
 
-        function renderTable(data, selectedModel = 'ALL') {
+        function renderTable(data, selectedModel = 'ALL', selectedStatus = 'ALL') {
             let compList = getSortedComponents();
 
             let hiddenComponents = new Set();
@@ -695,7 +723,7 @@
                 body.appendChild(tr);
             });
 
-            document.getElementById('unit-counter').innerText = `Showing ${data.length} Fleet Units`;
+            document.getElementById('unit-counter').innerText = `Showing ${data.length} Fleet Units (Filtered by Status: ${selectedStatus})`;
 
             const bar = document.getElementById('sos-sum-bar');
             bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-${Math.min(activeCompList.length || 1, 8)} gap-2 text-center text-xs`;
