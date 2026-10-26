@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <!-- Chart.js for Visual Health Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2pdf for A3 PDF Export -->
+    <!-- html2pdf for Full Multi-Page A3 PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         /* Theme Configurations */
@@ -66,9 +66,9 @@
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .badge-waiting { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-        .comp-cell { width: 190px; min-width: 190px; max-width: 190px; }
+        .comp-cell { width: 175px; min-width: 175px; max-width: 175px; }
 
-        /* Strict Scroll & Freeze Configuration */
+        /* Strict Scroll & Freeze Configuration for Screen View */
         .table-container {
             max-height: 75vh;
             overflow-y: auto;
@@ -102,6 +102,22 @@
             z-index: 30;
             background-color: var(--sticky-head) !important;
         }
+
+        /* Print / PDF Override Styles to capture ALL data without clipping */
+        .pdf-export-mode .table-container {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        .pdf-export-mode thead th,
+        .pdf-export-mode .sticky-asset-col {
+            position: static !important;
+            box-shadow: none !important;
+        }
+        .pdf-export-mode .comp-cell {
+            width: auto !important;
+            min-width: 130px !important;
+            max-width: none !important;
+        }
     </style>
 </head>
 <body class="min-h-screen font-sans p-4 md:p-6 flex flex-col justify-between">
@@ -110,7 +126,7 @@
         <!-- Header Section -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 theme-card p-5 rounded-2xl border shadow-2xl">
             <div class="flex items-center gap-3">
-                <!-- Digital & SmartFleet Tech Icon (SVG Inline) -->
+                <!-- Digital & SmartFleet Tech Icon -->
                 <div class="w-10 h-10 flex items-center justify-center p-2 bg-blue-600/20 rounded-xl border border-blue-500/30 text-blue-400 shadow-inner">
                     <svg class="w-full h-full fill-current" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
                         <path d="M224 32v64h-32l-23.3-23.3-45.3 45.3L146.7 142H112V96H64v46c-21.7 13.7-36.9 36.3-41.9 62H0v64h22.1c5 25.7 20.2 48.3 41.9 62V376h48v-46h34.7l-23.3 23.3 45.3 45.3L192 374.7V416h32v64h64V32h-64zm-32 256c-35.3 0-64-28.7-64-64s28.7-64 64-64 64 28.7 64 64-28.7 64-64 64zm256-160c0-17.7-14.3-32-32-32s-32 14.3-32 32 14.3 32 32 32 32-14.3 32-32zm-64 128c0-17.7-14.3-32-32-32s-32 14.3-32 32 14.3 32 32 32 32-14.3 32-32zm64 128c0-17.7-14.3-32-32-32s-32 14.3-32 32 14.3 32 32 32 32-14.3 32-32z"/>
@@ -118,7 +134,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.7 Condition Monitoring</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.8 Condition Monitoring & Reliability Report</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -194,19 +210,19 @@
             </div>
         </div>
 
-        <!-- Main Matrix Table -->
-        <div class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
+        <!-- Main Matrix Table Container -->
+        <div id="matrix-wrapper" class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider">Detailed Component Condition & Wear Elements</h3>
                 <span class="text-[10px] theme-text-sub">💡 SOS Date • Trend • Work Order Active</span>
             </div>
             <div class="table-container">
-                <table class="w-full text-left text-xs border-collapse">
+                <table id="matrix-table" class="w-full text-left text-xs border-collapse">
                     <thead id="matrix-head" class="text-slate-400 uppercase text-[10px] tracking-wider">
                         <!-- Dynamic Headers -->
                     </thead>
                     <tbody id="matrix-body" class="divide-y divide-slate-800/80">
-                        <tr><td id="status-cell" colspan="20" class="p-6 text-center theme-text-sub">Loading dashboard...</td></tr>
+                        <tr><td id="status-cell" colspan="25" class="p-6 text-center theme-text-sub">Loading dashboard...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -231,10 +247,10 @@
             "TORQUE CONVERTER",
             "TRANSMISSION",
             "DIFFERENTIAL FRONT",
+            "FINAL DRIVE REAR LEFT",
+            "FINAL DRIVE REAR RIGHT",
             "WHEEL BEARINGS FRONT LEFT",
             "WHEEL BEARINGS FRONT RIGHT",
-            "FINAL DRIVE FRONT LEFT",
-            "FINAL DRIVE FRONT RIGHT",
             "DIFFERENTIAL REAR",
             "FINAL DRIVE REAR LEFT",
             "FINAL DRIVE REAR RIGHT",
@@ -260,28 +276,38 @@
         document.documentElement.setAttribute('data-theme', savedTheme);
         document.getElementById('theme-selector').value = savedTheme;
 
-        // Function to trigger PDF A3 export
+        // Enhanced PDF Engine: Unwraps table completely for 100% full capture from Engine to Product Link across all rows
         function downloadPdfA3() {
-            const element = document.getElementById('export-pdf-container');
-            const opt = {
-                margin:       5,
-                filename:     'SmartFleet_Condition_Monitoring_Dashboard.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, logging: false },
-                jsPDF:        { unit: 'mm', format: 'a3', orientation: 'landscape' }
-            };
-
-            // Temporary notification
+            const container = document.getElementById('export-pdf-container');
             const statusEl = document.getElementById('sync-status');
-            const originalText = statusEl.innerText;
-            statusEl.innerText = 'Generating PDF A3...';
+
+            statusEl.innerText = 'Compiling Full PDF A3...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
-            html2pdf().from(element).set(opt).save().then(() => {
-                statusEl.innerText = originalText;
+            // Temporarily enable export mode (removes scrollbars & sticky positioning so entire table renders)
+            container.classList.add('pdf-export-mode');
+
+            const opt = {
+                margin:       [8, 8, 8, 8],
+                filename:     'SmartFleet_Full_Condition_Monitoring_Dashboard.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { 
+                    scale: 1.5, 
+                    useCORS: true, 
+                    logging: false,
+                    windowWidth: 2400 // Ensures wide 19-column table does not wrap or truncate
+                },
+                jsPDF:        { unit: 'mm', format: 'a3', orientation: 'landscape' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            html2pdf().from(container).set(opt).save().then(() => {
+                container.classList.remove('pdf-export-mode');
+                statusEl.innerText = '✓ Live CSV Synced';
                 statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
             }).catch(err => {
                 console.error("PDF Export Error:", err);
+                container.classList.remove('pdf-export-mode');
                 statusEl.innerText = 'PDF Export Failed';
                 statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
             });
