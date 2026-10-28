@@ -10,94 +10,29 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <!-- Chart.js for Visual Health Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2pdf for Single-Page Asset PDF Export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- SheetJS for Native Excel (.xlsx) Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        /* Theme Configurations */
         [data-theme="slate"] {
-            --bg-main: #020617;
-            --bg-card: #0f172a;
-            --bg-header: #0f172a;
-            --border-color: #1e293b;
-            --text-main: #f8fafc;
-            --text-sub: #94a3b8;
-            --sticky-col: #0f172a;
-            --sticky-head: #020617;
+            --bg-main: #020617; --bg-card: #0f172a; --border-color: #1e293b; --text-main: #f8fafc; --text-sub: #94a3b8; --sticky-col: #0f172a; --sticky-head: #020617;
         }
-
         [data-theme="light"] {
-            --bg-main: #f8fafc;
-            --bg-card: #ffffff;
-            --bg-header: #ffffff;
-            --border-color: #e2e8f0;
-            --text-main: #0f172a;
-            --text-sub: #64748b;
-            --sticky-col: #f1f5f9;
-            --sticky-head: #e2e8f0;
+            --bg-main: #f8fafc; --bg-card: #ffffff; --border-color: #e2e8f0; --text-main: #0f172a; --text-sub: #64748b; --sticky-col: #f1f5f9; --sticky-head: #e2e8f0;
         }
-
         [data-theme="navy"] {
-            --bg-main: #0a1128;
-            --bg-card: #101f42;
-            --bg-header: #101f42;
-            --border-color: #1c3166;
-            --text-main: #e0e6ed;
-            --text-sub: #8ba0c4;
-            --sticky-col: #101f42;
-            --sticky-head: #0a1128;
+            --bg-main: #0a1128; --bg-card: #101f42; --border-color: #1c3166; --text-main: #e0e6ed; --text-sub: #8ba0c4; --sticky-col: #101f42; --sticky-head: #0a1128;
         }
-
-        body {
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        .theme-card {
-            background-color: var(--bg-card);
-            border-color: var(--border-color);
-        }
-
-        .theme-text-sub {
-            color: var(--text-sub);
-        }
-
+        body { background-color: var(--bg-main); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
+        .theme-card { background-color: var(--bg-card); border-color: var(--border-color); }
+        .theme-text-sub { color: var(--text-sub); }
         .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
         .comp-cell { width: 175px; min-width: 175px; max-width: 175px; }
-
-        /* Strict Scroll & Freeze Configuration */
-        .table-container {
-            max-height: 70vh;
-            overflow-y: auto;
-            overflow-x: auto;
-            position: relative;
-        }
-
-        thead th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background-color: var(--sticky-head) !important;
-            box-shadow: inset 0 -1px 0 var(--border-color);
-        }
-
-        .sticky-asset-col {
-            position: sticky;
-            left: 0;
-            z-index: 10;
-            background-color: var(--sticky-col) !important;
-            box-shadow: inset -1px 0 0 var(--border-color);
-        }
-
-        thead th.sticky-asset-col {
-            position: sticky;
-            top: 0;
-            left: 0;
-            z-index: 30;
-            background-color: var(--sticky-head) !important;
-        }
+        .table-container { max-height: 70vh; overflow-y: auto; overflow-x: auto; position: relative; }
+        thead th { position: sticky; top: 0; z-index: 20; background-color: var(--sticky-head) !important; box-shadow: inset 0 -1px 0 var(--border-color); }
+        .sticky-asset-col { position: sticky; left: 0; z-index: 10; background-color: var(--sticky-col) !important; box-shadow: inset -1px 0 0 var(--border-color); }
+        thead th.sticky-asset-col { position: sticky; top: 0; left: 0; z-index: 30; background-color: var(--sticky-head) !important; }
     </style>
 </head>
 <body class="min-h-screen font-sans p-3 md:p-6 flex flex-col justify-between">
@@ -113,11 +48,10 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Mobile Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.9 mobile dashboard</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.0</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
-                <!-- Theme Switcher -->
                 <div class="flex items-center gap-2 bg-slate-800/20 px-3 py-1.5 rounded-xl border border-slate-700/50">
                     <span class="text-xs">🎨</span>
                     <select id="theme-selector" onchange="changeTheme(this.value)" class="bg-transparent text-xs font-semibold outline-none cursor-pointer">
@@ -126,14 +60,8 @@
                         <option value="navy" class="bg-blue-950 text-white">Navy</option>
                     </select>
                 </div>
-
-                <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">
-                    Ready
-                </span>
-
-                <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">
-                    🔄 Sync
-                </button>
+                <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
+                <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync</button>
             </div>
         </header>
 
@@ -147,7 +75,7 @@
                 <div class="relative w-full max-w-[180px] h-[150px] flex items-center justify-center">
                     <canvas id="healthChart"></canvas>
                 </div>
-                <div id="chart-stats-legend" class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold w-full mt-3">
+                <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold w-full mt-3">
                     <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-1 rounded-lg">Normal: <span id="stat-normal">0%</span></div>
                     <div class="bg-amber-500/10 border border-amber-500/30 text-amber-400 p-1 rounded-lg">Caution: <span id="stat-caution">0%</span></div>
                     <div class="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-1 rounded-lg">Critical: <span id="stat-critical">0%</span></div>
@@ -161,7 +89,7 @@
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-800/40 flex justify-between items-center text-xs">
                     <div id="unit-counter" class="theme-text-sub font-medium">Loading records...</div>
-                    <span class="text-blue-400 font-semibold">💡 Tap Asset ID to view detail & export PDF</span>
+                    <span class="text-emerald-400 font-semibold">💡 Tap Asset ID to view detail & export Excel</span>
                 </div>
             </div>
         </div>
@@ -180,7 +108,7 @@
         <div class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider">Fleet Component Matrix</h3>
-                <span class="text-[10px] theme-text-sub">Tap ID for Single-Page Report</span>
+                <span class="text-[10px] theme-text-sub">Tap ID for Asset Details & Excel Export</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -193,58 +121,36 @@
         </div>
     </div>
 
-    <!-- MODAL POPUP FOR SINGLE ASSET DETAIL & PDF EXPORT -->
+    <!-- MODAL POPUP FOR ASSET DETAIL & EXCEL EXPORT -->
     <div id="asset-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
         <div class="theme-card w-full max-w-5xl rounded-2xl border shadow-2xl p-4 sm:p-6 max-h-[95vh] overflow-y-auto relative flex flex-col">
-            
-            <!-- Modal Action Buttons Bar -->
             <div class="flex justify-between items-center pb-4 mb-4 border-b border-slate-700">
                 <h2 class="text-sm font-bold text-blue-400 uppercase tracking-wider">Single Asset Condition Report</h2>
                 <div class="flex items-center gap-2">
-                    <button onclick="exportAssetPdf()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
-                        📥 Export PDF (Single Page)
+                    <button onclick="exportAssetExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
+                        📥 Export Excel (.xlsx)
                     </button>
-                    <button onclick="closeAssetModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">
-                        ✕ Close
-                    </button>
+                    <button onclick="closeAssetModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">✕ Close</button>
                 </div>
             </div>
 
-            <!-- PRINTABLE SINGLE PAGE CONTAINER (Optimized for 1 page A4 Landscape) -->
-            <div id="printable-asset-container" class="p-3 bg-slate-900/90 text-slate-100 rounded-xl border border-slate-800">
-                
-                <!-- Asset Header Info Box -->
-                <div class="grid grid-cols-4 gap-2 p-2.5 mb-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
-                    <div>
-                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Asset ID</span>
-                        <span id="modal-asset-id" class="font-extrabold text-xs text-blue-400">-</span>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Model / Type</span>
-                        <span id="modal-model" class="font-bold text-xs">-</span>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Serial Number (S/N)</span>
-                        <span id="modal-serial" class="font-mono font-bold text-xs">-</span>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Current SMU / Life</span>
-                        <span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span>
-                    </div>
+            <!-- Preview in Modal -->
+            <div class="p-3 bg-slate-900 text-slate-100 rounded-xl border border-slate-800">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 mb-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Asset ID</span><span id="modal-asset-id" class="font-extrabold text-xs text-blue-400">-</span></div>
+                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Model / Type</span><span id="modal-model" class="font-bold text-xs">-</span></div>
+                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Serial Number (S/N)</span><span id="modal-serial" class="font-mono font-bold text-xs">-</span></div>
+                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Current SMU / Life</span><span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span></div>
                 </div>
-
-                <!-- Components Grid for this Asset (Compact columns to fit 1 page) -->
                 <h3 class="text-[11px] font-bold uppercase tracking-wider mb-2 text-slate-300">Component Health & Maintenance Details</h3>
-                <div id="modal-components-grid" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-                    <!-- Populated dynamically -->
-                </div>
+                <div id="modal-components-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"></div>
             </div>
-
         </div>
     </div>
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
+        <p class="text-[11px] font-mono theme-text-sub tracking-widest flex items-center justify-center gap-1.5"><span>63rn4d🪞2026</span></p>
         <p class="text-[8px] font-mono text-slate-500 mt-0.5">63rn4d<span style="font-size: 8px;" title="Eye of Providence">👁️</span>@2026</p>
     </footer>
 
@@ -284,13 +190,9 @@
                 clearTimeout(timer);
                 if (res.ok) {
                     const text = await res.text();
-                    if (text && text.trim().length > 0) {
-                        return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
-                    }
+                    if (text && text.trim().length > 0) return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
                 }
-            } catch (e) {
-                clearTimeout(timer);
-            }
+            } catch (e) { clearTimeout(timer); }
             const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
             const res = await fetch(fallbackUrl);
             const text = await res.text();
@@ -300,7 +202,6 @@
         async function fetchAllData(forceRefresh = true) {
             const statusEl = document.getElementById('sync-status');
             if (forceRefresh) localStorage.removeItem('smartfleet_main_csv');
-
             statusEl.innerText = 'Syncing...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
@@ -327,9 +228,7 @@
         function parseWearElements(rawStr) {
             if (!rawStr || rawStr.trim() === '' || rawStr.includes('#N/A')) return '-';
             const validElements = ['CU', 'FE', 'CR', 'PB', 'SN', 'SI', 'AL', 'MO', 'NI', 'AG', 'B', 'NA', 'K', 'V', 'ZN'];
-            let parts = rawStr.split(',')
-                .map(s => s.trim().toUpperCase())
-                .filter(s => validElements.includes(s));
+            let parts = rawStr.split(',').map(s => s.trim().toUpperCase()).filter(s => validElements.includes(s));
             return parts.length > 0 ? parts.join(', ') : '-';
         }
 
@@ -337,13 +236,11 @@
             if (!valStr || valStr === '-' || valStr === '#N/A') return '-';
             let cleanStr = valStr.toString().replace(/,/g, '.');
             let num = parseFloat(cleanStr);
-            if (isNaN(num)) return valStr;
-            return Math.round(num).toString() + ' hrs';
+            return isNaN(num) ? valStr : Math.round(num).toString() + ' hrs';
         }
 
         function processRawRows(rows) {
             if (!rows || rows.length === 0) return;
-
             const keys = Object.keys(rows[0]);
             const assetKey = keys.find(k => k.trim().toLowerCase() === 'asset id') || keys.find(k => /unit|asset|equipment|id/i.test(k)) || keys[0];
             const serialKey = keys.find(k => /serial.*no|serial|sn|s\/n/i.test(k));
@@ -365,10 +262,8 @@
                 let unit = r[assetKey] || '';
                 let comp = componentKey ? (r[componentKey] || '') : 'GENERAL';
                 if (!unit) return;
-
                 unit = unit.toString().trim();
                 comp = comp.toString().trim().toUpperCase();
-                
                 let modelVal = modelKey && r[modelKey] ? r[modelKey].toString().trim() : 'ALL MODELS';
                 let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : '';
 
@@ -378,33 +273,17 @@
                 }
 
                 let serialVal = serialKey && r[serialKey] ? r[serialKey].toString().trim() : '-';
+                if (!unitMap[unit]) unitMap[unit] = { assetId: unit, model: modelVal, serialNo: serialVal, components: {} };
 
-                if (!unitMap[unit]) {
-                    unitMap[unit] = {
-                        assetId: unit,
-                        model: modelVal,
-                        serialNo: serialVal,
-                        components: {}
-                    };
-                }
-
-                if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '' || rawStatus.toUpperCase() === 'WAITING RESULT') {
-                    rawStatus = 'Normal';
-                }
+                if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '' || rawStatus.toUpperCase() === 'WAITING RESULT') rawStatus = 'Normal';
 
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
                 let roundedLife = formatRoundedHours(rawMeter);
-                let rawElementVal = elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '';
-                let cleanElements = parseWearElements(rawElementVal);
-
-                let actionVal = actionKey && r[actionKey] ? r[actionKey].toString().trim() : '';
-                if (!actionVal && cleanElements !== '-') actionVal = `Monitor wear elements [${cleanElements}].`;
+                let cleanElements = parseWearElements(elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '');
+                let actionVal = actionKey && r[actionKey] ? r[actionKey].toString().trim() : (cleanElements !== '-' ? `Monitor wear elements [${cleanElements}].` : '-');
 
                 unitMap[unit].components[comp] = {
-                    status: rawStatus,
-                    life: roundedLife,
-                    elements: cleanElements,
-                    action: actionVal,
+                    status: rawStatus, life: roundedLife, elements: cleanElements, action: actionVal,
                     sosDate: dateKey && r[dateKey] ? r[dateKey].toString().trim() : '-',
                     trend: trendKey && r[trendKey] ? r[trendKey].toString().trim() : '-',
                     workOrder: workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-',
@@ -421,10 +300,7 @@
             const currentSelected = select.value;
             select.innerHTML = '<option value="ALL">All Models</option>';
             Array.from(allUniqueModels).sort().forEach(m => {
-                let opt = document.createElement('option');
-                opt.value = m;
-                opt.innerText = m;
-                select.appendChild(opt);
+                let opt = document.createElement('option'); opt.value = m; opt.innerText = m; select.appendChild(opt);
             });
             if (currentSelected) select.value = currentSelected;
             renderTable(data);
@@ -440,15 +316,12 @@
             let modelComponents = new Set();
             globalFleetData.forEach(row => {
                 if (activeModel === 'ALL' || row.model === activeModel) {
-                    Object.keys(row.components).forEach(c => {
-                        if (row.components[c].isRealData) modelComponents.add(c);
-                    });
+                    Object.keys(row.components).forEach(c => { if (row.components[c].isRealData) modelComponents.add(c); });
                 }
             });
             if (modelComponents.size === 0) return preferredComponentOrder;
             return Array.from(modelComponents).sort((a, b) => {
-                let idxA = preferredComponentOrder.indexOf(a);
-                let idxB = preferredComponentOrder.indexOf(b);
+                let idxA = preferredComponentOrder.indexOf(a), idxB = preferredComponentOrder.indexOf(b);
                 if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                 if (idxA !== -1) return -1;
                 if (idxB !== -1) return 1;
@@ -456,12 +329,12 @@
             });
         }
 
-        function renderChart(normalCount, cautionCount, criticalCount, modelLabel) {
+        function renderChart(n, c, cr, modelLabel) {
             const ctx = document.getElementById('healthChart').getContext('2d');
-            const total = normalCount + cautionCount + criticalCount;
-            document.getElementById('stat-normal').innerText = total > 0 ? ((normalCount/total)*100).toFixed(1)+'%' : '0%';
-            document.getElementById('stat-caution').innerText = total > 0 ? ((cautionCount/total)*100).toFixed(1)+'%' : '0%';
-            document.getElementById('stat-critical').innerText = total > 0 ? ((criticalCount/total)*100).toFixed(1)+'%' : '0%';
+            const total = n + c + cr;
+            document.getElementById('stat-normal').innerText = total > 0 ? ((n/total)*100).toFixed(1)+'%' : '0%';
+            document.getElementById('stat-caution').innerText = total > 0 ? ((c/total)*100).toFixed(1)+'%' : '0%';
+            document.getElementById('stat-critical').innerText = total > 0 ? ((cr/total)*100).toFixed(1)+'%' : '0%';
             document.getElementById('chart-model-label').innerText = modelLabel.toUpperCase();
 
             if (healthChartInstance) healthChartInstance.destroy();
@@ -469,12 +342,7 @@
                 type: 'doughnut',
                 data: {
                     labels: ['Normal', 'Caution', 'Critical'],
-                    datasets: [{
-                        data: [normalCount, cautionCount, criticalCount],
-                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-                        borderWidth: 2,
-                        borderColor: 'transparent'
-                    }]
+                    datasets: [{ data: [n, c, cr], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderWidth: 2, borderColor: 'transparent' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }
             });
@@ -489,14 +357,12 @@
 
             const body = document.getElementById('matrix-body');
             body.innerHTML = '';
-            let sosSum = {};
-            compList.forEach(c => sosSum[c] = 0);
+            let sosSum = {}; compList.forEach(c => sosSum[c] = 0);
             let nTot = 0, cTot = 0, crTot = 0;
 
             data.forEach(row => {
                 let tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/20 transition border-b border-slate-800/40";
-
                 let rowHTML = `
                     <td class="p-3 font-extrabold text-sm tracking-wide border-r border-blue-900/40 w-36 min-w-[144px] sticky-asset-col">
                         <button onclick="openAssetDetail('${row.assetId}')" class="text-blue-400 hover:text-blue-300 underline font-extrabold text-left transition flex flex-col">
@@ -511,11 +377,8 @@
 
                 compList.forEach(comp => {
                     let cd = row.components[comp];
-                    if (!cd || !cd.isRealData) {
-                        cd = { status: 'Normal', life: fallbackLife, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                    } else if (cd.life === '-' && fallbackLife !== '-') {
-                        cd.life = fallbackLife;
-                    }
+                    if (!cd || !cd.isRealData) cd = { status: 'Normal', life: fallbackLife, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
+                    else if (cd.life === '-' && fallbackLife !== '-') cd.life = fallbackLife;
 
                     let stLower = cd.status.toLowerCase();
                     if (stLower.includes('critical')) { crTot++; sosSum[comp]++; }
@@ -527,20 +390,13 @@
                     rowHTML += `
                         <td class="p-2.5 border-r border-slate-800/60 comp-cell align-top">
                             <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[95px]">
-                                <div class="flex justify-between items-center">
-                                    <span class="font-bold">${cd.status}</span>
-                                    <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span>
-                                </div>
+                                <div class="flex justify-between items-center"><span class="font-bold">${cd.status}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
                                 <div class="mt-1 text-[8px] truncate">${cd.elements !== '-' ? '⚠️ ' + cd.elements : '-'}</div>
-                                <div class="mt-1 pt-1 border-t border-black/10 text-[8px] flex flex-col">
-                                    <span class="truncate">📅 ${cd.sosDate}</span>
-                                    <span class="truncate">🛠️ ${cd.workOrder}</span>
-                                </div>
+                                <div class="mt-1 pt-1 border-t border-black/10 text-[8px] flex flex-col"><span class="truncate">📅 ${cd.sosDate}</span><span class="truncate">🛠️ ${cd.workOrder}</span></div>
                             </div>
                         </td>
                     `;
                 });
-
                 tr.innerHTML = rowHTML;
                 body.appendChild(tr);
             });
@@ -549,15 +405,12 @@
             let bar = document.getElementById('sos-sum-bar');
             bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 text-center text-xs`;
             let barH = '';
-            compList.forEach(c => {
-                barH += `<div class="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50"><span class="theme-text-sub block text-[9px] truncate">${c}</span><span class="text-sm font-bold text-amber-400">${sosSum[c]}</span></div>`;
-            });
+            compList.forEach(c => { barH += `<div class="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50"><span class="theme-text-sub block text-[9px] truncate">${c}</span><span class="text-sm font-bold text-amber-400">${sosSum[c]}</span></div>`; });
             bar.innerHTML = barH;
 
             renderChart(nTot, cTot, crTot, selectedModel);
         }
 
-        // --- ASSET DETAIL MODAL & PDF EXPORT LOGIC ---
         function openAssetDetail(assetId) {
             const asset = globalFleetData.find(d => d.assetId === assetId);
             if (!asset) return;
@@ -576,7 +429,7 @@
 
             compList.forEach(comp => {
                 let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                    let stLower = cd.status.toLowerCase();
+                let stLower = cd.status.toLowerCase();
                 let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
 
                 gridHTML += `
@@ -603,19 +456,63 @@
             document.getElementById('asset-modal').classList.add('hidden');
         }
 
-        function exportAssetPdf() {
+        // --- NATIVE EXCEL (.XLSX) EXPORT LOGIC ---
+        function exportAssetExcel() {
             if (!activeModalAsset) return;
-            const element = document.getElementById('printable-asset-container');
-            const opt = {
-                margin:       [4, 4, 4, 4],
-                filename:     `Asset_${activeModalAsset.assetId}_Condition_Report.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, logging: false },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
-                pagebreak:    { mode: 'avoid-all' }
-            };
+            const asset = activeModalAsset;
 
-            html2pdf().from(element).set(opt).save();
+            let assetSmu = '-';
+            for (let k in asset.components) {
+                if (asset.components[k].life !== '-') { assetSmu = asset.components[k].life; break; }
+            }
+
+            let compList = getSortedComponents(asset.model);
+
+            // Construct Excel Data Structure
+            const sheetData = [
+                ["SMARTFLEET CONDITION MONITORING REPORT"],
+                ["Single Asset Technical Summary"],
+                [],
+                ["ASSET ID:", asset.assetId, "", "MODEL / TYPE:", asset.model],
+                ["SERIAL NUMBER (S/N):", asset.serialNo, "", "CURRENT SMU / LIFE:", assetSmu],
+                [],
+                ["No.", "Component Assembly", "Oil Health Status", "Component SMU", "Over Wear Elements", "Recommended Action", "SOS Sample Date", "Trend", "Work Order Number"]
+            ];
+
+            compList.forEach((comp, idx) => {
+                let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
+                sheetData.push([
+                    idx + 1,
+                    comp,
+                    cd.status,
+                    cd.life,
+                    cd.elements,
+                    cd.action,
+                    cd.sosDate,
+                    cd.trend,
+                    cd.workOrder
+                ]);
+            });
+
+            // Create Workbook & Worksheet via SheetJS
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+            // Auto-fit column widths
+            ws['!cols'] = [
+                { wch: 5 },   // No.
+                { wch: 30 },  // Component Assembly
+                { wch: 18 },  // Status
+                { wch: 15 },  // SMU
+                { wch: 20 },  // Wear Elements
+                { wch: 35 },  // Recommended Action
+                { wch: 15 },  // Date
+                { wch: 10 },  // Trend
+                { wch: 25 }   // Work Order
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, "Asset Condition");
+            XLSX.writeFile(wb, `Asset_${asset.assetId}_Condition_Report.xlsx`);
         }
 
         fetchAllData(true);
