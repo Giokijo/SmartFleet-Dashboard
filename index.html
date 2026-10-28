@@ -113,7 +113,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Mobile Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.8 with mobilephone view</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.9 mobile dashboard</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -210,32 +210,32 @@
                 </div>
             </div>
 
-            <!-- PRINTABLE SINGLE PAGE CONTAINER -->
-            <div id="printable-asset-container" class="p-2 sm:p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+            <!-- PRINTABLE SINGLE PAGE CONTAINER (Optimized for 1 page A4 Landscape) -->
+            <div id="printable-asset-container" class="p-3 bg-slate-900/90 text-slate-100 rounded-xl border border-slate-800">
                 
                 <!-- Asset Header Info Box -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 mb-5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                <div class="grid grid-cols-4 gap-2 p-2.5 mb-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
                     <div>
-                        <span class="theme-text-sub block text-[10px]">ASSET ID</span>
-                        <span id="modal-asset-id" class="font-extrabold text-sm text-blue-400">-</span>
+                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Asset ID</span>
+                        <span id="modal-asset-id" class="font-extrabold text-xs text-blue-400">-</span>
                     </div>
                     <div>
-                        <span class="theme-text-sub block text-[10px]">MODEL / TYPE</span>
-                        <span id="modal-model" class="font-bold">-</span>
+                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Model / Type</span>
+                        <span id="modal-model" class="font-bold text-xs">-</span>
                     </div>
                     <div>
-                        <span class="theme-text-sub block text-[10px]">SERIAL NUMBER (S/N)</span>
-                        <span id="modal-serial" class="font-mono font-bold">-</span>
+                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Serial Number (S/N)</span>
+                        <span id="modal-serial" class="font-mono font-bold text-xs">-</span>
                     </div>
                     <div>
-                        <span class="theme-text-sub block text-[10px]">CURRENT SMU / LIFE</span>
-                        <span id="modal-smu" class="font-mono font-bold text-amber-400">-</span>
+                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Current SMU / Life</span>
+                        <span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span>
                     </div>
                 </div>
 
-                <!-- Components Grid for this Asset -->
-                <h3 class="text-xs font-bold uppercase tracking-wider mb-3 text-slate-300">Component Health & Maintenance Details</h3>
-                <div id="modal-components-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <!-- Components Grid for this Asset (Compact columns to fit 1 page) -->
+                <h3 class="text-[11px] font-bold uppercase tracking-wider mb-2 text-slate-300">Component Health & Maintenance Details</h3>
+                <div id="modal-components-grid" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                     <!-- Populated dynamically -->
                 </div>
             </div>
@@ -259,7 +259,7 @@
         let activeModalAsset = null;
 
         const preferredComponentOrder = [
-            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT", "FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
+            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
             "WHEEL BEARINGS FRONT LEFT", "WHEEL BEARINGS FRONT RIGHT", "DIFFERENTIAL REAR",
             "FINAL DRIVE REAR LEFT", "FINAL DRIVE REAR RIGHT", "TANDEM LEFT", "TANDEM RIGHT",
             "PUMP DRIVE", "SWING DRIVE LEFT", "SWING DRIVE RIGHT", "STEERING SYSTEM",
@@ -576,20 +576,20 @@
 
             compList.forEach(comp => {
                 let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                let stLower = cd.status.toLowerCase();
+                    let stLower = cd.status.toLowerCase();
                 let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
 
                 gridHTML += `
-                    <div class="p-2.5 rounded-xl border border-slate-800 ${badgeClass} text-[10px] flex flex-col justify-between shadow-sm">
-                        <div class="flex justify-between items-center font-bold mb-1">
-                            <span class="uppercase text-slate-900">${comp}</span>
-                            <span class="bg-white/80 px-1 rounded text-[9px]">${cd.status}</span>
+                    <div class="p-2 rounded-lg border border-slate-700 ${badgeClass} text-[9px] flex flex-col justify-between shadow-sm">
+                        <div class="flex justify-between items-center font-bold mb-0.5">
+                            <span class="uppercase text-slate-900 truncate max-w-[80px]" title="${comp}">${comp}</span>
+                            <span class="bg-white/90 px-1 rounded text-[8px]">${cd.status}</span>
                         </div>
-                        <div class="text-[9px] text-slate-700 mb-1">SMU: <b>${cd.life}</b></div>
-                        <div class="text-[9px] text-rose-800 font-semibold mb-1">${cd.elements !== '-' ? 'Elements: ' + cd.elements : ''}</div>
-                        <div class="pt-1 border-t border-black/10 text-[8px] flex flex-col gap-0.5 font-mono">
-                            <div>Date: ${cd.sosDate} | Trend: ${cd.trend}</div>
-                            <div class="truncate">WO: ${cd.workOrder}</div>
+                        <div class="text-[8px] text-slate-800">SMU: <b>${cd.life}</b></div>
+                        <div class="text-[8px] text-rose-800 font-semibold truncate">${cd.elements !== '-' ? '⚠️ ' + cd.elements : ''}</div>
+                        <div class="pt-1 mt-0.5 border-t border-black/10 text-[7px] flex flex-col gap-0.5 font-mono text-slate-900">
+                            <div>📅 ${cd.sosDate}</div>
+                            <div class="truncate" title="${cd.workOrder}">🛠️ ${cd.workOrder}</div>
                         </div>
                     </div>
                 `;
@@ -607,7 +607,7 @@
             if (!activeModalAsset) return;
             const element = document.getElementById('printable-asset-container');
             const opt = {
-                margin:       5,
+                margin:       [4, 4, 4, 4],
                 filename:     `Asset_${activeModalAsset.assetId}_Condition_Report.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true, logging: false },
