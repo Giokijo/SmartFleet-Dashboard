@@ -115,7 +115,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.6 Condition Monitoring & Reliability Report</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 4.7 Dynamic Model-Specific Component Filtering Active</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -190,7 +190,7 @@
         <div id="matrix-wrapper" class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider">Detailed Component Condition & Wear Elements</h3>
-                <span class="text-[10px] theme-text-sub">💡 SOS Date • Trend • Work Order Active</span>
+                <span class="text-[10px] theme-text-sub">💡 Live Update</span>
             </div>
             <div class="table-container">
                 <table id="matrix-table" class="w-full text-left text-xs border-collapse">
@@ -207,12 +207,16 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-10 mb-2">
-        <p class="text-[8px] font-mono text-slate-500 mt-0.5">63rn4d<span style="font-size: 13px;" title="Eye of Providence">👁️</span>@2026</p>
+        <p class="text-[11px] font-mono theme-text-sub tracking-widest flex items-center justify-center gap-1.5">
+            <span>63rn4d🪞2026</span>
+        </p>
+        <p class="text-[10px] font-mono text-slate-500 mt-0.5">63rn4d<span style="font-size: 13px;" title="Eye of Providence">👁️</span>2026</p>
     </footer>
 
     <script>
         const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
 
+        let rawRowsGlobal = [];
         let globalFleetData = [];
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
@@ -286,6 +290,7 @@
             try {
                 const mainRes = await fetchWithTimeout(mainUrlData);
                 if (mainRes && mainRes.length > 0) {
+                    rawRowsGlobal = mainRes;
                     processRawRows(mainRes);
                     localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes));
                     statusEl.innerText = '✓ Live CSV Synced';
@@ -295,7 +300,8 @@
                 console.warn("Live fetch error:", err);
                 const cachedMain = localStorage.getItem('smartfleet_main_csv');
                 if (cachedMain) {
-                    processRawRows(JSON.parse(cachedMain));
+                    rawRowsGlobal = JSON.parse(cachedMain);
+                    processRawRows(rawRowsGlobal);
                     statusEl.innerText = '✓ Loaded Offline Cache';
                     statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
                 }
@@ -311,7 +317,8 @@
                 skipEmptyLines: true,
                 complete: function(results) {
                     if (results.data && results.data.length > 0) {
-                        processRawRows(results.data);
+                        rawRowsGlobal = results.data;
+                        processRawRows(rawRowsGlobal);
                         const statusEl = document.getElementById('sync-status');
                         statusEl.innerText = '✓ Local File Loaded';
                         statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
@@ -369,10 +376,19 @@
                 comp = comp.toString().trim().toUpperCase();
                 
                 let modelVal = modelKey && r[modelKey] ? r[modelKey].toString().trim() : 'ALL MODELS';
-                let serialVal = serialKey && r[serialKey] ? r[serialKey].toString().trim() : '-';
+                let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : '';
 
-                if (modelVal) allUniqueModels.add(modelVal);
-                allUniqueComponents.add(comp);
+                // Keep track of active components explicitly present in the raw data per model
+                if (modelVal && modelVal !== '') {
+                    allUniqueModels.add(modelVal);
+                }
+                
+                // Only register component if it actually has data/status in the raw file for this unit
+                if (rawStatus && rawStatus.toUpperCase() !== 'N/A' && rawStatus !== '' && rawStatus.toUpperCase() !== 'WAITING RESULT') {
+                    allUniqueComponents.add(comp);
+                }
+
+                let serialVal = serialKey && r[serialKey] ? r[serialKey].toString().trim() : '-';
 
                 if (!unitMap[unit]) {
                     unitMap[unit] = {
@@ -383,8 +399,6 @@
                     };
                 }
 
-                let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : '';
-                
                 if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '' || rawStatus.toUpperCase() === 'WAITING RESULT') {
                     rawStatus = 'Normal';
                 }
@@ -411,34 +425,9 @@
                     action: actionVal,
                     sosDate: dateVal,
                     trend: trendVal,
-                    workOrder: workOrderVal
+                    workOrder: workOrderVal,
+                    isRealData: true
                 };
-            });
-
-            Object.values(unitMap).forEach(unitObj => {
-                let fallbackLife = '-';
-                for (let cKey in unitObj.components) {
-                    if (unitObj.components[cKey].life !== '-') {
-                        fallbackLife = unitObj.components[cKey].life;
-                        break;
-                    }
-                }
-
-                allUniqueComponents.forEach(compName => {
-                    if (!unitObj.components[compName]) {
-                        unitObj.components[compName] = {
-                            status: 'Normal',
-                            life: fallbackLife,
-                            elements: '-',
-                            action: '-',
-                            sosDate: '-',
-                            trend: '-',
-                            workOrder: '-'
-                        };
-                    } else if (unitObj.components[compName].life === '-' && fallbackLife !== '-') {
-                        unitObj.components[compName].life = fallbackLife;
-                    }
-                });
             });
 
             globalFleetData = Object.values(unitMap).sort((a, b) => {
@@ -470,8 +459,26 @@
             renderTable(filtered, selectedModel);
         }
 
-        function getSortedComponents() {
-            let allComps = Array.from(allUniqueComponents);
+        function getSortedComponents(activeModel = 'ALL') {
+            // Determine which components actually exist in the raw dataset for the selected model
+            let modelComponents = new Set();
+            
+            globalFleetData.forEach(row => {
+                if (activeModel === 'ALL' || row.model === activeModel) {
+                    Object.keys(row.components).forEach(c => {
+                        if (row.components[c].isRealData) {
+                            modelComponents.add(c);
+                        }
+                    });
+                }
+            });
+
+            // Fallback if none found
+            if (modelComponents.size === 0) {
+                return preferredComponentOrder;
+            }
+
+            let allComps = Array.from(modelComponents);
             return allComps.sort((a, b) => {
                 let indexA = preferredComponentOrder.indexOf(a);
                 let indexB = preferredComponentOrder.indexOf(b);
@@ -531,7 +538,7 @@
         }
 
         function renderTable(data, selectedModel = 'ALL') {
-            let compList = getSortedComponents();
+            let compList = getSortedComponents(selectedModel);
 
             const head = document.getElementById('matrix-head');
             let headHTML = `<tr>
@@ -564,18 +571,30 @@
                     </td>
                 `;
 
+                // Find a fallback life hour for this asset row from any available component
+                let fallbackLife = '-';
+                for (let cKey in row.components) {
+                    if (row.components[cKey].life && row.components[cKey].life !== '-') {
+                        fallbackLife = row.components[cKey].life;
+                        break;
+                    }
+                }
+
                 compList.forEach(comp => {
                     let compData = row.components[comp];
-                    if (!compData) {
+                    if (!compData || !compData.isRealData) {
                         compData = {
                             status: 'Normal',
-                            life: '-',
+                            life: fallbackLife,
                             elements: '-',
                             action: '-',
                             sosDate: '-',
                             trend: '-',
-                            workOrder: '-'
+                            workOrder: '-',
+                            isRealData: false
                         };
+                    } else if (compData.life === '-' && fallbackLife !== '-') {
+                        compData.life = fallbackLife;
                     }
 
                     let compStatus = compData.status;
