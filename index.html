@@ -28,7 +28,7 @@
         .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
-        .comp-cell { width: 175px; min-width: 175px; max-width: 175px; }
+        .comp-cell { width: 185px; min-width: 185px; max-width: 185px; }
         .table-container { max-height: 70vh; overflow-y: auto; overflow-x: auto; position: relative; }
         thead th { position: sticky; top: 0; z-index: 20; background-color: var(--sticky-head) !important; box-shadow: inset 0 -1px 0 var(--border-color); }
         .sticky-asset-col { position: sticky; left: 0; z-index: 10; background-color: var(--sticky-col) !important; box-shadow: inset -1px 0 0 var(--border-color); }
@@ -47,8 +47,8 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Mobile Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.0</p>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Dynamic Monitoring Dashboard</h1>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.1 Full Component Details Active (Elements, Action, Trend & WO)</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -143,15 +143,14 @@
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Current SMU / Life</span><span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span></div>
                 </div>
                 <h3 class="text-[11px] font-bold uppercase tracking-wider mb-2 text-slate-300">Component Health & Maintenance Details</h3>
-                <div id="modal-components-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"></div>
+                <div id="modal-components-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
             </div>
         </div>
     </div>
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[11px] font-mono theme-text-sub tracking-widest flex items-center justify-center gap-1.5"><span>63rn4d🪞2026</span></p>
-        <p class="text-[8px] font-mono text-slate-500 mt-0.5">63rn4d<span style="font-size: 8px;" title="Eye of Providence">👁️</span>@2026</p>
+        <p class="text-[8px] font-mono text-slate-500 mt-0.5">63rn4d<span style="font-size: 13px;" title="Eye of Providence">👁️</span>@2026</p>
     </footer>
 
     <script>
@@ -165,7 +164,7 @@
         let activeModalAsset = null;
 
         const preferredComponentOrder = [
-            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
+            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT", "FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
             "WHEEL BEARINGS FRONT LEFT", "WHEEL BEARINGS FRONT RIGHT", "DIFFERENTIAL REAR",
             "FINAL DRIVE REAR LEFT", "FINAL DRIVE REAR RIGHT", "TANDEM LEFT", "TANDEM RIGHT",
             "PUMP DRIVE", "SWING DRIVE LEFT", "SWING DRIVE RIGHT", "STEERING SYSTEM",
@@ -283,7 +282,10 @@
                 let actionVal = actionKey && r[actionKey] ? r[actionKey].toString().trim() : (cleanElements !== '-' ? `Monitor wear elements [${cleanElements}].` : '-');
 
                 unitMap[unit].components[comp] = {
-                    status: rawStatus, life: roundedLife, elements: cleanElements, action: actionVal,
+                    status: rawStatus,
+                    life: roundedLife,
+                    elements: cleanElements,
+                    action: actionVal,
                     sosDate: dateKey && r[dateKey] ? r[dateKey].toString().trim() : '-',
                     trend: trendKey && r[trendKey] ? r[trendKey].toString().trim() : '-',
                     workOrder: workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-',
@@ -387,12 +389,32 @@
 
                     let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
 
+                    let elementDisplay = (cd.elements && cd.elements !== '-') 
+                        ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-0.5 text-[9px]">
+                             <span class="font-extrabold text-rose-300 block">⚠️ ${cd.elements}</span>
+                           </div>` 
+                        : '';
+
+                    let actionDisplay = (cd.action && cd.action !== '-') 
+                        ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` 
+                        : '';
+
                     rowHTML += `
-                        <td class="p-2.5 border-r border-slate-800/60 comp-cell align-top">
-                            <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[95px]">
-                                <div class="flex justify-between items-center"><span class="font-bold">${cd.status}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
-                                <div class="mt-1 text-[8px] truncate">${cd.elements !== '-' ? '⚠️ ' + cd.elements : '-'}</div>
-                                <div class="mt-1 pt-1 border-t border-black/10 text-[8px] flex flex-col"><span class="truncate">📅 ${cd.sosDate}</span><span class="truncate">🛠️ ${cd.workOrder}</span></div>
+                        <td class="p-2 border-r border-slate-800/60 comp-cell align-top">
+                            <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[115px]">
+                                <div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold">${cd.status}</span>
+                                        <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span>
+                                    </div>
+                                    ${elementDisplay}
+                                    ${actionDisplay}
+                                </div>
+                                <div class="mt-1.5 pt-1 border-t border-black/10 text-[8px] flex flex-col gap-0.5">
+                                    <div class="flex justify-between"><span class="opacity-75">📅 Date:</span> <span class="font-mono font-bold">${cd.sosDate}</span></div>
+                                    <div class="flex justify-between"><span class="opacity-75">📈 Trend:</span> <span class="font-bold">${cd.trend}</span></div>
+                                    <div class="flex justify-between"><span class="opacity-75">🛠️ WO:</span> <span class="font-mono font-bold truncate max-w-[90px]">${cd.workOrder}</span></div>
+                                </div>
                             </div>
                         </td>
                     `;
@@ -433,16 +455,19 @@
                 let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
 
                 gridHTML += `
-                    <div class="p-2 rounded-lg border border-slate-700 ${badgeClass} text-[9px] flex flex-col justify-between shadow-sm">
-                        <div class="flex justify-between items-center font-bold mb-0.5">
-                            <span class="uppercase text-slate-900 truncate max-w-[80px]" title="${comp}">${comp}</span>
-                            <span class="bg-white/90 px-1 rounded text-[8px]">${cd.status}</span>
+                    <div class="p-3 rounded-xl border border-slate-700 ${badgeClass} text-[10px] flex flex-col justify-between shadow-md">
+                        <div>
+                            <div class="flex justify-between items-center font-bold mb-1 border-b border-black/10 pb-1">
+                                <span class="uppercase text-slate-900 font-extrabold text-xs">${comp}</span>
+                                <span class="bg-white/90 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">${cd.status}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-800 mb-1">Component Life: <b>${cd.life}</b></div>
+                            ${cd.elements !== '-' ? `<div class="text-[9px] text-rose-800 font-extrabold bg-rose-200/80 px-1.5 py-0.5 rounded mb-1">⚠️ Elements: ${cd.elements}</div>` : ''}
+                            ${cd.action !== '-' ? `<div class="text-[9px] text-slate-900 font-semibold mb-2 bg-white/50 p-1.5 rounded border border-black/10 leading-snug">💡 <b>Action:</b> ${cd.action}</div>` : ''}
                         </div>
-                        <div class="text-[8px] text-slate-800">SMU: <b>${cd.life}</b></div>
-                        <div class="text-[8px] text-rose-800 font-semibold truncate">${cd.elements !== '-' ? '⚠️ ' + cd.elements : ''}</div>
-                        <div class="pt-1 mt-0.5 border-t border-black/10 text-[7px] flex flex-col gap-0.5 font-mono text-slate-900">
-                            <div>📅 ${cd.sosDate}</div>
-                            <div class="truncate" title="${cd.workOrder}">🛠️ ${cd.workOrder}</div>
+                        <div class="pt-1.5 border-t border-black/10 text-[9px] flex flex-col gap-0.5 font-mono text-slate-900">
+                            <div class="flex justify-between"><span>Date: ${cd.sosDate}</span> <span>Trend: <b>${cd.trend}</b></span></div>
+                            <div class="truncate">WO: <b>${cd.workOrder}</b></div>
                         </div>
                     </div>
                 `;
@@ -468,7 +493,6 @@
 
             let compList = getSortedComponents(asset.model);
 
-            // Construct Excel Data Structure
             const sheetData = [
                 ["SMARTFLEET CONDITION MONITORING REPORT"],
                 ["Single Asset Technical Summary"],
@@ -494,21 +518,19 @@
                 ]);
             });
 
-            // Create Workbook & Worksheet via SheetJS
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
-            // Auto-fit column widths
             ws['!cols'] = [
-                { wch: 5 },   // No.
-                { wch: 30 },  // Component Assembly
-                { wch: 18 },  // Status
-                { wch: 15 },  // SMU
-                { wch: 20 },  // Wear Elements
-                { wch: 35 },  // Recommended Action
-                { wch: 15 },  // Date
-                { wch: 10 },  // Trend
-                { wch: 25 }   // Work Order
+                { wch: 5 },
+                { wch: 30 },
+                { wch: 18 },
+                { wch: 15 },
+                { wch: 20 },
+                { wch: 45 },
+                { wch: 15 },
+                { wch: 10 },
+                { wch: 25 }
             ];
 
             XLSX.utils.book_append_sheet(wb, ws, "Asset Condition");
