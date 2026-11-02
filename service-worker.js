@@ -1,5 +1,5 @@
 /* Fleet Health PWA - versioned app shell + optional CDN dependency cache. */
-const VERSION = '2026-11-02-v1';
+const VERSION = '2026-11-02-v2';
 const PREFIX = 'fleet-health-pwa-';
 const SHELL_CACHE = PREFIX + 'shell-' + VERSION;
 const LIB_CACHE = PREFIX + 'libraries-' + VERSION;
