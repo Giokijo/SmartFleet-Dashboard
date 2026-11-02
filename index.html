@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fleet Health Dashboard</title>
+    <title>Fleet Health Condition Monitoring Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PapaParse for Fast CSV Parsing -->
@@ -50,7 +50,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.2 Update </p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.2 Interactive Chart Health Filtering Active</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -74,7 +74,7 @@
                     <h2 class="text-xs font-bold uppercase tracking-wider text-blue-400">📊 Fleet Health (%)</h2>
                     <span id="chart-model-label" class="text-[10px] theme-text-sub font-mono">ALL</span>
                 </div>
-                <div class="relative w-full max-w-[180px] h-[150px] flex items-center justify-center">
+                <div class="relative w-full max-w-[180px] h-[150px] flex items-center justify-center cursor-pointer" title="Klik bagian chart untuk memfilter status komponen">
                     <canvas id="healthChart"></canvas>
                 </div>
                 <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold w-full mt-3">
@@ -86,12 +86,15 @@
 
             <div class="lg:col-span-2 theme-card p-4 rounded-2xl border shadow-xl flex flex-col justify-between">
                 <div>
-                    <h2 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">⚡ Fleet Status Exceeded Summary</h2>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-xs font-bold text-amber-400 uppercase tracking-wider">⚡ Fleet Status Exceeded Summary</h2>
+                        <button id="reset-filter-btn" onclick="resetStatusFilter()" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 transition">🔄 Reset Status Filter</button>
+                    </div>
                     <div id="sos-sum-bar" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 text-center text-xs"></div>
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-800/40 flex justify-between items-center text-xs">
                     <div id="unit-counter" class="theme-text-sub font-medium">Loading records...</div>
-                    <span class="text-emerald-400 font-semibold">💡 Tap Asset ID to view detail & export Excel</span>
+                    <span class="text-emerald-400 font-semibold">💡 Klik warna Chart untuk filter Normal/Caution/Critical</span>
                 </div>
             </div>
         </div>
@@ -107,7 +110,7 @@
         <!-- Main Matrix Table Container -->
         <div class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
-                <h3 class="text-xs font-bold uppercase tracking-wider">Fleet Component Matrix</h3>
+                <h3 id="matrix-title" class="text-xs font-bold uppercase tracking-wider">Fleet Component Matrix (All Status)</h3>
                 <span class="text-[10px] theme-text-sub">Tap ID for Asset Details & Excel Export</span>
             </div>
             <div class="table-container">
@@ -162,6 +165,7 @@
         let healthChartInstance = null;
         let activeModalAsset = null;
         let currentSelectedModel = 'ALL';
+        let currentStatusFilter = 'ALL'; // 'ALL', 'Normal', 'Caution', 'Critical'
 
         const preferredComponentOrder = [
             "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
@@ -205,14 +209,13 @@
             };
         }
 
-        // Helper untuk mengubah string tren (misal "BBB" atau "ABC") menjadi bulatan warna
         function renderTrendDots(trendStr) {
             if (!trendStr || trendStr === '-' || trendStr.trim() === '') return '-';
             let clean = trendStr.toString().toUpperCase().trim();
             let html = '<div class="flex items-center gap-1">';
             for (let i = 0; i < clean.length; i++) {
                 let char = clean[i];
-                let colorClass = 'bg-slate-500'; // Default
+                let colorClass = 'bg-slate-500';
                 if (char === 'A') colorClass = 'bg-emerald-500 shadow-sm shadow-emerald-500/50';
                 else if (char === 'B') colorClass = 'bg-amber-400 shadow-sm shadow-amber-400/50';
                 else if (char === 'C') colorClass = 'bg-rose-500 shadow-sm shadow-rose-500/50';
@@ -344,7 +347,7 @@
 
             globalFleetData = Object.values(unitMap).sort((a, b) => a.assetId.localeCompare(b.assetId, undefined, { numeric: true, sensitivity: 'base' }));
             buildIconFilterBar();
-            filterTable(currentSelectedModel);
+            filterTable();
         }
 
         function buildIconFilterBar() {
@@ -387,8 +390,19 @@
         function selectModel(modelName) {
             currentSelectedModel = modelName;
             buildIconFilterBar();
-            let filtered = modelName === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === modelName);
-            renderTable(filtered, modelName);
+            filterTable();
+        }
+
+        function filterTable() {
+            let filtered = currentSelectedModel === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === currentSelectedModel);
+            renderTable(filtered, currentSelectedModel, currentStatusFilter);
+        }
+
+        function resetStatusFilter() {
+            currentStatusFilter = 'ALL';
+            document.getElementById('matrix-title').innerText = "Fleet Component Matrix (All Status)";
+            document.getElementById('reset-filter-btn').classList.add('hidden');
+            filterTable();
         }
 
         function getSortedComponents(activeModel = 'ALL') {
@@ -421,13 +435,38 @@
                 type: 'doughnut',
                 data: {
                     labels: ['Normal', 'Caution', 'Critical'],
-                    datasets: [{ data: [n, c, cr], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderWidth: 2, borderColor: 'transparent' }]
+                    datasets: [{
+                        data: [n, c, cr],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 2,
+                        borderColor: 'transparent'
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    cutout: '70%',
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            if (index === 0) filterByStatus('Normal');
+                            else if (index === 1) filterByStatus('Caution');
+                            else if (index === 2) filterByStatus('Critical');
+                        }
+                    }
+                }
             });
         }
 
-        function renderTable(data, selectedModel = 'ALL') {
+        function filterByStatus(statusName) {
+            currentStatusFilter = statusName;
+            document.getElementById('matrix-title').innerText = `Fleet Component Matrix (Filtered: ${statusName} Only)`;
+            document.getElementById('reset-filter-btn').classList.remove('hidden');
+            filterTable();
+        }
+
+        function renderTable(data, selectedModel = 'ALL', statusFilter = 'ALL') {
             let compList = getSortedComponents(selectedModel);
             const head = document.getElementById('matrix-head');
             let headHTML = `<tr><th class="p-3 text-blue-400 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID</th>`;
@@ -440,6 +479,28 @@
             let nTot = 0, cTot = 0, crTot = 0;
 
             data.forEach(row => {
+                let fallbackLife = '-';
+                for (let k in row.components) { if (row.components[k].life !== '-') { fallbackLife = row.components[k].life; break; } }
+
+                // Check if row has any component matching statusFilter (when filtering)
+                let hasMatchingComponent = false;
+                compList.forEach(comp => {
+                    let cd = row.components[comp];
+                    if (cd && cd.isRealData) {
+                        let stLower = cd.status.toLowerCase();
+                        if (stLower.includes('critical')) { crTot++; sosSum[comp]++; }
+                        else if (stLower.includes('caution') || stLower.includes('monitor')) { cTot++; sosSum[comp]++; }
+                        else if (stLower.includes('normal')) { nTot++; }
+
+                        if (statusFilter === 'ALL') hasMatchingComponent = true;
+                        else if (statusFilter === 'Normal' && stLower.includes('normal')) hasMatchingComponent = true;
+                        else if (statusFilter === 'Caution' && (stLower.includes('caution') || stLower.includes('monitor'))) hasMatchingComponent = true;
+                        else if (statusFilter === 'Critical' && stLower.includes('critical')) hasMatchingComponent = true;
+                    }
+                });
+
+                if (statusFilter !== 'ALL' && !hasMatchingComponent) return; // Skip row if no component matches filter
+
                 let tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/20 transition border-b border-slate-800/40";
                 let rowHTML = `
@@ -451,26 +512,29 @@
                     </td>
                 `;
 
-                let fallbackLife = '-';
-                for (let k in row.components) { if (row.components[k].life !== '-') { fallbackLife = row.components[k].life; break; } }
-
                 compList.forEach(comp => {
                     let cd = row.components[comp];
                     if (!cd || !cd.isRealData) cd = { status: 'Normal', life: fallbackLife, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
                     else if (cd.life === '-' && fallbackLife !== '-') cd.life = fallbackLife;
 
                     let stLower = cd.status.toLowerCase();
-                    if (stLower.includes('critical')) { crTot++; sosSum[comp]++; }
-                    else if (stLower.includes('caution') || stLower.includes('monitor')) { cTot++; sosSum[comp]++; }
-                    else if (stLower.includes('normal')) { nTot++; }
-
                     let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
                     let elementDisplay = (cd.elements && cd.elements !== '-') ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-0.5 text-[9px]"><span class="font-extrabold text-rose-300 block">⚠️ ${cd.elements}</span></div>` : '';
                     let actionDisplay = (cd.action && cd.action !== '-') ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` : '';
                     let trendDotsDisplay = renderTrendDots(cd.trend);
 
+                    // If statusFilter is active, hide/dim non-matching component boxes for clarity
+                    let isDimmed = false;
+                    if (statusFilter !== 'ALL') {
+                        if (statusFilter === 'Normal' && !stLower.includes('normal')) isDimmed = true;
+                        if (statusFilter === 'Caution' && !stLower.includes('caution') && !stLower.includes('monitor')) isDimmed = true;
+                        if (statusFilter === 'Critical' && !stLower.includes('critical')) isDimmed = true;
+                    }
+
+                    let opacityStyle = isDimmed ? 'opacity-25 filter grayscale' : 'opacity-100';
+
                     rowHTML += `
-                        <td class="p-2 border-r border-slate-800/60 comp-cell align-top">
+                        <td class="p-2 border-r border-slate-800/60 comp-cell align-top ${opacityStyle} transition">
                             <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[115px]">
                                 <div>
                                     <div class="flex justify-between items-center"><span class="font-bold">${cd.status}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
@@ -490,7 +554,7 @@
                 body.appendChild(tr);
             });
 
-            document.getElementById('unit-counter').innerText = `Showing ${data.length} Fleet Units`;
+            document.getElementById('unit-counter').innerText = `Showing filtered records`;
             let bar = document.getElementById('sos-sum-bar');
             bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 text-center text-xs`;
             let barH = '';
