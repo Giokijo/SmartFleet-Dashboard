@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fleet Health Condition Monitoring Dashboard</title>
+    <!-- Progressive Web App: desktop + mobile -->
+    <meta name="theme-color" content="#020617">
+    <meta name="application-name" content="Fleet Health">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fleet Health">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PapaParse for Fast CSV Parsing -->
@@ -63,6 +73,7 @@
                     </select>
                 </div>
                 <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
+                <button id="pwa-install-btn" type="button" hidden class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md" aria-label="Install Fleet Health App">⬇ Install App</button>
                 <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync</button>
             </div>
         </header>
@@ -236,31 +247,47 @@
         document.documentElement.setAttribute('data-theme', savedTheme);
         document.getElementById('theme-selector').value = savedTheme;
 
-        async function fetchWithTimeout(url, timeoutMs = 4000) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-            try {
-                const res = await fetch(url, { signal: controller.signal });
-                clearTimeout(timer);
-                if (res.ok) {
+        async function fetchWithTimeout(url, timeoutMs = 5000) {
+            const attempt = async (targetUrl, limitMs) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), limitMs);
+                try {
+                    const res = await fetch(targetUrl, { signal: controller.signal, cache: 'no-store' });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const text = await res.text();
-                    if (text && text.trim().length > 0) return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+                    if (!text || !text.trim()) throw new Error('Empty CSV response');
+                    const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+                    if (!rows.length) throw new Error('No rows returned');
+                    return rows;
+                } finally {
+                    clearTimeout(timer);
                 }
-            } catch (e) { clearTimeout(timer); }
-            const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const res = await fetch(fallbackUrl);
-            const text = await res.text();
-            return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+            };
+            try {
+                return await attempt(url, timeoutMs);
+            } catch (directError) {
+                const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                return await attempt(fallbackUrl, 5000);
+            }
         }
 
         async function fetchAllData(forceRefresh = true) {
             const statusEl = document.getElementById('sync-status');
-            if (forceRefresh) localStorage.removeItem('smartfleet_main_csv');
+            // Keep the previous successful sync available during refresh and offline use.
+            if (!rawRowsGlobal.length) {
+                const previous = localStorage.getItem('smartfleet_main_csv');
+                if (previous) {
+                    try {
+                        rawRowsGlobal = JSON.parse(previous);
+                        processRawRows(rawRowsGlobal);
+                    } catch (_) { /* Ignore corrupted cache; fetch fresh data. */ }
+                }
+            }
             statusEl.innerText = 'Syncing...';
             statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
 
             try {
-                const mainRes = await fetchWithTimeout(mainUrlData);
+                const mainRes = await fetchWithTimeout(mainUrlData.replace(/&t=\d+$/, '') + '&t=' + Date.now());
                 if (mainRes && mainRes.length > 0) {
                     rawRowsGlobal = mainRes;
                     processRawRows(mainRes);
@@ -271,10 +298,19 @@
             } catch (err) {
                 const cachedMain = localStorage.getItem('smartfleet_main_csv');
                 if (cachedMain) {
-                    rawRowsGlobal = JSON.parse(cachedMain);
-                    processRawRows(rawRowsGlobal);
-                    statusEl.innerText = '✓ Cache';
-                    statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
+                    try {
+                        rawRowsGlobal = JSON.parse(cachedMain);
+                        processRawRows(rawRowsGlobal);
+                        statusEl.innerText = '✓ Cached data';
+                        statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800';
+                    } catch (_) {
+                        statusEl.innerText = 'Offline';
+                        statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
+                    }
+                } else {
+                    statusEl.innerText = 'Offline · No cached data';
+                    statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
+                    document.getElementById('status-cell').textContent = 'Connect to the internet to load and cache fleet data at least once.';
                 }
             }
         }
@@ -644,6 +680,49 @@
         }
 
         fetchAllData(true);
+    </script>
+    <script>
+        // A single manifest supports Windows/macOS/Linux desktop and Android/iOS mobile.
+        (() => {
+            const installButton = document.getElementById('pwa-install-btn');
+            let deferredInstallPrompt = null;
+            const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true;
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+            if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+                        .catch(err => console.warn('PWA registration:', err));
+                });
+            }
+
+            const hideInstall = () => { installButton.hidden = true; };
+            if (isIOS && !isInstalled()) {
+                installButton.hidden = false;
+                installButton.textContent = '⬇ Add to Home Screen';
+            }
+            window.addEventListener('beforeinstallprompt', event => {
+                event.preventDefault();
+                deferredInstallPrompt = event;
+                if (!isInstalled()) installButton.hidden = false;
+            });
+            window.addEventListener('appinstalled', () => {
+                deferredInstallPrompt = null;
+                hideInstall();
+            });
+            installButton.addEventListener('click', async () => {
+                if (deferredInstallPrompt) {
+                    const prompt = deferredInstallPrompt;
+                    deferredInstallPrompt = null;
+                    hideInstall();
+                    await prompt.prompt();
+                } else if (isIOS && !isInstalled()) {
+                    alert('iPhone/iPad: Open this website in Safari, tap Share, then choose Add to Home Screen.');
+                }
+            });
+        })();
     </script>
 </body>
 </html>
