@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartFleet Live Condition Monitoring Dashboard</title>
+    <title>Fleet Health Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PapaParse for Fast CSV Parsing -->
@@ -33,6 +33,8 @@
         thead th { position: sticky; top: 0; z-index: 20; background-color: var(--sticky-head) !important; box-shadow: inset 0 -1px 0 var(--border-color); }
         .sticky-asset-col { position: sticky; left: 0; z-index: 10; background-color: var(--sticky-col) !important; box-shadow: inset -1px 0 0 var(--border-color); }
         thead th.sticky-asset-col { position: sticky; top: 0; left: 0; z-index: 30; background-color: var(--sticky-head) !important; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="min-h-screen font-sans p-3 md:p-6 flex flex-col justify-between">
@@ -47,8 +49,8 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.1 Full Component Details Active (Elements, Action, Trend & WO)</p>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">Dynamic Monitoring Dashboard</h1>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.2 Update </p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -94,14 +96,12 @@
             </div>
         </div>
 
-        <!-- Model Filter Bar -->
-        <div class="flex flex-wrap gap-4 mb-6 theme-card p-4 rounded-2xl border shadow-xl items-center justify-between">
-            <div class="flex items-center gap-3 w-full sm:w-auto">
-                <label class="text-xs font-semibold uppercase tracking-wider">Filter Model:</label>
-                <select id="model-filter" onchange="filterTable()" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500 w-full sm:w-48">
-                    <option value="ALL">All Models</option>
-                </select>
+        <!-- Horizontal Heavy Equipment Vector Filter Bar -->
+        <div class="mb-6 theme-card p-4 rounded-2xl border shadow-xl">
+            <div class="text-xs font-bold uppercase tracking-wider text-blue-400 mb-3 flex items-center gap-2">
+                <span>🚜 Filter by Equipment Model Profile:</span>
             </div>
+            <div id="icon-filter-bar" class="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar"></div>
         </div>
 
         <!-- Main Matrix Table Container -->
@@ -134,7 +134,6 @@
                 </div>
             </div>
 
-            <!-- Preview in Modal -->
             <div class="p-3 bg-slate-900 text-slate-100 rounded-xl border border-slate-800">
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 mb-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Asset ID</span><span id="modal-asset-id" class="font-extrabold text-xs text-blue-400">-</span></div>
@@ -150,7 +149,7 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[8px] font-mono text-slate-500 mt-0.5">63rn4d<span style="font-size: 13px;" title="Eye of Providence">👁️</span>@2026</p>
+        <p class="text-[8px] font-mono text-slate-500 mt-0.5">neemba<span style="font-size: 13px;" title="Eye of Providence">👁️</span>2026</p>
     </footer>
 
     <script>
@@ -162,14 +161,67 @@
         let allUniqueModels = new Set();
         let healthChartInstance = null;
         let activeModalAsset = null;
+        let currentSelectedModel = 'ALL';
 
         const preferredComponentOrder = [
-            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT", "FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
+            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
             "WHEEL BEARINGS FRONT LEFT", "WHEEL BEARINGS FRONT RIGHT", "DIFFERENTIAL REAR",
             "FINAL DRIVE REAR LEFT", "FINAL DRIVE REAR RIGHT", "TANDEM LEFT", "TANDEM RIGHT",
             "PUMP DRIVE", "SWING DRIVE LEFT", "SWING DRIVE RIGHT", "STEERING SYSTEM",
             "HYDRAULIC SYSTEM", "RADIATOR", "VIMS", "PRODUCT LINK"
         ];
+
+        function getModelIconSvg(modelName) {
+            let m = (modelName || '').toUpperCase();
+            if (m.includes('777') || m.includes('773')) {
+                return {
+                    svg: `<svg class="w-10 h-7" viewBox="0 0 64 48"><path d="M6 28 L2 14 L24 8 L38 20 L38 28 Z" fill="#f59e0b"/><path d="M38 18 L48 18 L54 24 L54 36 L38 36 Z" fill="#d97706"/><path d="M46 20 L52 24 L46 24 Z" fill="#0f172a"/><rect x="2" y="28" width="52" height="8" rx="2" fill="#475569"/><circle cx="14" cy="36" r="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/><circle cx="44" cy="36" r="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/></svg>`,
+                    subtitle: 'Haul Truck'
+                };
+            } else if (m.includes('16')) {
+                return {
+                    svg: `<svg class="w-10 h-7" viewBox="0 0 64 48"><path d="M36 16 L44 16 L48 22 L48 30 L36 30 Z" fill="#d97706"/><path d="M42 18 L46 22 L42 22 Z" fill="#0f172a"/><path d="M12 28 L40 24 L56 28" stroke="#f59e0b" stroke-width="3" fill="none"/><path d="M22 32 L34 26" stroke="#e11d48" stroke-width="3"/><circle cx="10" cy="32" r="5" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/><circle cx="20" cy="32" r="5" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/><circle cx="52" cy="32" r="5" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/></svg>`,
+                    subtitle: 'Motor Grader'
+                };
+            } else if (m.includes('395') || m.includes('6020')) {
+                return {
+                    svg: `<svg class="w-10 h-7" viewBox="0 0 64 48"><rect x="8" y="30" width="28" height="8" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/><path d="M12 20 L28 20 L30 30 L10 30 Z" fill="#f59e0b"/><path d="M22 21 L28 21 L28 26 L22 26 Z" fill="#0f172a"/><path d="M26 22 L40 10 L50 20 L60 16" stroke="#d97706" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M58 14 L62 20 L54 22 Z" fill="#e11d48"/></svg>`,
+                    subtitle: 'Excavator'
+                };
+            } else if (m.includes('992')) {
+                return {
+                    svg: `<svg class="w-10 h-7" viewBox="0 0 64 48"><path d="M14 18 L26 18 L30 26 L12 26 Z" fill="#d97706"/><path d="M20 20 L24 20 L24 24 L20 24 Z" fill="#0f172a"/><path d="M26 26 L44 24 L52 16" stroke="#f59e0b" stroke-width="3" fill="none"/><path d="M50 14 L60 16 L56 28 L48 24 Z" fill="#e11d48"/><circle cx="16" cy="32" r="7" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/><circle cx="38" cy="32" r="7" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/></svg>`,
+                    subtitle: 'Wheel Loader'
+                };
+            } else if (m.includes('D9')) {
+                return {
+                    svg: `<svg class="w-10 h-7" viewBox="0 0 64 48"><rect x="10" y="28" width="32" height="10" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/><path d="M14 16 L28 16 L34 28 L12 28 Z" fill="#f59e0b"/><path d="M22 18 L26 18 L26 22 L22 22 Z" fill="#0f172a"/><path d="M38 20 L48 22 L48 36 L44 36 Z" fill="#e11d48"/><path d="M8 20 L4 32" stroke="#d97706" stroke-width="3"/></svg>`,
+                    subtitle: 'Track Dozer'
+                };
+            }
+            return {
+                svg: `<svg class="w-10 h-7 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`,
+                subtitle: 'Equipment'
+            };
+        }
+
+        // Helper untuk mengubah string tren (misal "BBB" atau "ABC") menjadi bulatan warna
+        function renderTrendDots(trendStr) {
+            if (!trendStr || trendStr === '-' || trendStr.trim() === '') return '-';
+            let clean = trendStr.toString().toUpperCase().trim();
+            let html = '<div class="flex items-center gap-1">';
+            for (let i = 0; i < clean.length; i++) {
+                let char = clean[i];
+                let colorClass = 'bg-slate-500'; // Default
+                if (char === 'A') colorClass = 'bg-emerald-500 shadow-sm shadow-emerald-500/50';
+                else if (char === 'B') colorClass = 'bg-amber-400 shadow-sm shadow-amber-400/50';
+                else if (char === 'C') colorClass = 'bg-rose-500 shadow-sm shadow-rose-500/50';
+
+                html += `<span class="w-2 h-2 rounded-full inline-block ${colorClass}" title="Trend: ${char}"></span>`;
+            }
+            html += '</div>';
+            return html;
+        }
 
         function changeTheme(themeName) {
             document.documentElement.setAttribute('data-theme', themeName);
@@ -282,10 +334,7 @@
                 let actionVal = actionKey && r[actionKey] ? r[actionKey].toString().trim() : (cleanElements !== '-' ? `Monitor wear elements [${cleanElements}].` : '-');
 
                 unitMap[unit].components[comp] = {
-                    status: rawStatus,
-                    life: roundedLife,
-                    elements: cleanElements,
-                    action: actionVal,
+                    status: rawStatus, life: roundedLife, elements: cleanElements, action: actionVal,
                     sosDate: dateKey && r[dateKey] ? r[dateKey].toString().trim() : '-',
                     trend: trendKey && r[trendKey] ? r[trendKey].toString().trim() : '-',
                     workOrder: workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-',
@@ -294,24 +343,52 @@
             });
 
             globalFleetData = Object.values(unitMap).sort((a, b) => a.assetId.localeCompare(b.assetId, undefined, { numeric: true, sensitivity: 'base' }));
-            buildMatrixUI(globalFleetData);
+            buildIconFilterBar();
+            filterTable(currentSelectedModel);
         }
 
-        function buildMatrixUI(data) {
-            const select = document.getElementById('model-filter');
-            const currentSelected = select.value;
-            select.innerHTML = '<option value="ALL">All Models</option>';
-            Array.from(allUniqueModels).sort().forEach(m => {
-                let opt = document.createElement('option'); opt.value = m; opt.innerText = m; select.appendChild(opt);
+        function buildIconFilterBar() {
+            const bar = document.getElementById('icon-filter-bar');
+            let models = Array.from(allUniqueModels).sort();
+
+            let html = `
+                <button onclick="selectModel('ALL')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-bold transition shadow-md cursor-pointer ${currentSelectedModel === 'ALL' ? 'bg-blue-600 border-blue-500 text-white' : 'theme-card hover:bg-slate-800/50 theme-text-sub'}">
+                    <div class="w-10 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
+                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    </div>
+                    <div class="text-left flex flex-col">
+                        <span class="text-sm tracking-wider">All Fleet</span>
+                        <span class="text-[9px] opacity-75">${globalFleetData.length} Units</span>
+                    </div>
+                </button>
+            `;
+
+            models.forEach(m => {
+                let meta = getModelIconSvg(m);
+                let count = globalFleetData.filter(d => d.model === m).length;
+                let isActive = currentSelectedModel === m;
+
+                html += `
+                    <button onclick="selectModel('${m}')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-bold transition shadow-md cursor-pointer ${isActive ? 'bg-blue-600 border-blue-500 text-white' : 'theme-card hover:bg-slate-800/50 theme-text-sub'}">
+                        <div class="w-10 h-8 rounded-lg bg-slate-900/80 border border-slate-700/60 flex items-center justify-center p-1">
+                            ${meta.svg}
+                        </div>
+                        <div class="text-left flex flex-col">
+                            <span class="text-sm tracking-wider">${m}</span>
+                            <span class="text-[9px] opacity-75">${meta.subtitle} (${count})</span>
+                        </div>
+                    </button>
+                `;
             });
-            if (currentSelected) select.value = currentSelected;
-            renderTable(data);
+
+            bar.innerHTML = html;
         }
 
-        function filterTable() {
-            const selectedModel = document.getElementById('model-filter').value;
-            let filtered = selectedModel === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === selectedModel);
-            renderTable(filtered, selectedModel);
+        function selectModel(modelName) {
+            currentSelectedModel = modelName;
+            buildIconFilterBar();
+            let filtered = modelName === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === modelName);
+            renderTable(filtered, modelName);
         }
 
         function getSortedComponents(activeModel = 'ALL') {
@@ -367,7 +444,7 @@
                 tr.className = "hover:bg-slate-800/20 transition border-b border-slate-800/40";
                 let rowHTML = `
                     <td class="p-3 font-extrabold text-sm tracking-wide border-r border-blue-900/40 w-36 min-w-[144px] sticky-asset-col">
-                        <button onclick="openAssetDetail('${row.assetId}')" class="text-blue-400 hover:text-blue-300 underline font-extrabold text-left transition flex flex-col">
+                        <button onclick="openAssetDetail('${row.assetId}')" class="text-blue-400 hover:text-blue-300 underline font-extrabold text-left transition flex flex-col cursor-pointer">
                             <span>${row.assetId} 🔍</span>
                             <span class="text-[10px] font-normal text-slate-400">${row.model}</span>
                         </button>
@@ -388,32 +465,22 @@
                     else if (stLower.includes('normal')) { nTot++; }
 
                     let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
-
-                    let elementDisplay = (cd.elements && cd.elements !== '-') 
-                        ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-0.5 text-[9px]">
-                             <span class="font-extrabold text-rose-300 block">⚠️ ${cd.elements}</span>
-                           </div>` 
-                        : '';
-
-                    let actionDisplay = (cd.action && cd.action !== '-') 
-                        ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` 
-                        : '';
+                    let elementDisplay = (cd.elements && cd.elements !== '-') ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-0.5 text-[9px]"><span class="font-extrabold text-rose-300 block">⚠️ ${cd.elements}</span></div>` : '';
+                    let actionDisplay = (cd.action && cd.action !== '-') ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` : '';
+                    let trendDotsDisplay = renderTrendDots(cd.trend);
 
                     rowHTML += `
                         <td class="p-2 border-r border-slate-800/60 comp-cell align-top">
                             <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[115px]">
                                 <div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-bold">${cd.status}</span>
-                                        <span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span>
-                                    </div>
+                                    <div class="flex justify-between items-center"><span class="font-bold">${cd.status}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
                                     ${elementDisplay}
                                     ${actionDisplay}
                                 </div>
                                 <div class="mt-1.5 pt-1 border-t border-black/10 text-[8px] flex flex-col gap-0.5">
-                                    <div class="flex justify-between"><span class="opacity-75">📅 Date:</span> <span class="font-mono font-bold">${cd.sosDate}</span></div>
-                                    <div class="flex justify-between"><span class="opacity-75">📈 Trend:</span> <span class="font-bold">${cd.trend}</span></div>
-                                    <div class="flex justify-between"><span class="opacity-75">🛠️ WO:</span> <span class="font-mono font-bold truncate max-w-[90px]">${cd.workOrder}</span></div>
+                                    <div class="flex justify-between items-center"><span class="opacity-75">📅 Date:</span> <span class="font-mono font-bold">${cd.sosDate}</span></div>
+                                    <div class="flex justify-between items-center"><span class="opacity-75">📈 Trend:</span> ${trendDotsDisplay}</div>
+                                    <div class="flex justify-between items-center"><span class="opacity-75">🛠️ WO:</span> <span class="font-mono font-bold truncate max-w-[90px]">${cd.workOrder}</span></div>
                                 </div>
                             </div>
                         </td>
@@ -453,6 +520,7 @@
                 let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
                 let stLower = cd.status.toLowerCase();
                 let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
+                let trendDotsDisplay = renderTrendDots(cd.trend);
 
                 gridHTML += `
                     <div class="p-3 rounded-xl border border-slate-700 ${badgeClass} text-[10px] flex flex-col justify-between shadow-md">
@@ -465,10 +533,11 @@
                             ${cd.elements !== '-' ? `<div class="text-[9px] text-rose-800 font-extrabold bg-rose-200/80 px-1.5 py-0.5 rounded mb-1">⚠️ Elements: ${cd.elements}</div>` : ''}
                             ${cd.action !== '-' ? `<div class="text-[9px] text-slate-900 font-semibold mb-2 bg-white/50 p-1.5 rounded border border-black/10 leading-snug">💡 <b>Action:</b> ${cd.action}</div>` : ''}
                         </div>
-                        <div class="pt-1.5 border-t border-black/10 text-[9px] flex flex-col gap-0.5 font-mono text-slate-900">
-                            <div class="flex justify-between"><span>Date: ${cd.sosDate}</span> <span>Trend: <b>${cd.trend}</b></span></div>
-                            <div class="truncate">WO: <b>${cd.workOrder}</b></div>
+                        <div class="pt-1.5 border-t border-black/10 text-[9px] flex justify-between items-center font-mono text-slate-900">
+                            <span>Date: ${cd.sosDate}</span>
+                            <span class="flex items-center gap-1">Trend: ${trendDotsDisplay}</span>
                         </div>
+                        <div class="truncate text-[9px] font-mono mt-1 text-slate-900">WO: <b>${cd.workOrder}</b></div>
                     </div>
                 `;
             });
@@ -481,16 +550,11 @@
             document.getElementById('asset-modal').classList.add('hidden');
         }
 
-        // --- NATIVE EXCEL (.XLSX) EXPORT LOGIC ---
         function exportAssetExcel() {
             if (!activeModalAsset) return;
             const asset = activeModalAsset;
-
             let assetSmu = '-';
-            for (let k in asset.components) {
-                if (asset.components[k].life !== '-') { assetSmu = asset.components[k].life; break; }
-            }
-
+            for (let k in asset.components) { if (asset.components[k].life !== '-') { assetSmu = asset.components[k].life; break; } }
             let compList = getSortedComponents(asset.model);
 
             const sheetData = [
@@ -505,34 +569,12 @@
 
             compList.forEach((comp, idx) => {
                 let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                sheetData.push([
-                    idx + 1,
-                    comp,
-                    cd.status,
-                    cd.life,
-                    cd.elements,
-                    cd.action,
-                    cd.sosDate,
-                    cd.trend,
-                    cd.workOrder
-                ]);
+                sheetData.push([idx + 1, comp, cd.status, cd.life, cd.elements, cd.action, cd.sosDate, cd.trend, cd.workOrder]);
             });
 
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-            ws['!cols'] = [
-                { wch: 5 },
-                { wch: 30 },
-                { wch: 18 },
-                { wch: 15 },
-                { wch: 20 },
-                { wch: 45 },
-                { wch: 15 },
-                { wch: 10 },
-                { wch: 25 }
-            ];
-
+            ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 25 }];
             XLSX.utils.book_append_sheet(wb, ws, "Asset Condition");
             XLSX.writeFile(wb, `Asset_${asset.assetId}_Condition_Report.xlsx`);
         }
