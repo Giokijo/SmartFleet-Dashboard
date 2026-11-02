@@ -45,6 +45,7 @@
         thead th.sticky-asset-col { position: sticky; top: 0; left: 0; z-index: 30; background-color: var(--sticky-head) !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        [hidden] { display: none !important; }
     </style>
 </head>
 <body class="min-h-screen font-sans p-3 md:p-6 flex flex-col justify-between">
@@ -60,7 +61,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.2 Interactive Chart Health Filtering Active</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.3 Interactive Chart Health Filtering Active</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -73,7 +74,7 @@
                     </select>
                 </div>
                 <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
-                <button id="pwa-install-btn" type="button" hidden class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md" aria-label="Install Fleet Health App">⬇ Install App</button>
+                <button id="pwa-install-btn" type="button" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard sebagai aplikasi">⬇ Install App</button>
                 <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync</button>
             </div>
         </header>
@@ -681,47 +682,154 @@
 
         fetchAllData(true);
     </script>
+    <!-- Install assistance: visible on all browsers, even before PWA eligibility is granted. -->
+    <div id="pwa-install-modal" hidden role="dialog" aria-modal="true" aria-labelledby="pwa-dialog-title" class="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center">
+        <div class="theme-card border rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start gap-4 mb-4">
+                <div>
+                    <h2 id="pwa-dialog-title" class="text-lg font-bold text-cyan-400">Install Fleet Health</h2>
+                    <p class="text-xs theme-text-sub mt-1">Gunakan dashboard seperti aplikasi PC atau mobile.</p>
+                </div>
+                <button type="button" id="pwa-dialog-close" class="text-slate-400 hover:text-white text-lg px-2 py-1 rounded-lg border border-slate-700" aria-label="Close install guidance">✕</button>
+            </div>
+            <div class="bg-slate-900/70 border border-slate-700 rounded-xl p-3 mb-4">
+                <h3 class="text-xs font-bold text-white mb-2">Cara install di perangkat ini</h3>
+                <p id="pwa-install-instructions" class="text-sm text-slate-200 leading-relaxed whitespace-pre-line"></p>
+            </div>
+            <div class="border-t border-slate-700 pt-3">
+                <h3 class="text-xs font-bold text-slate-300 mb-2">Pemeriksaan PWA</h3>
+                <p id="pwa-install-checks" class="text-xs leading-6 whitespace-pre-line text-slate-300">Memeriksa konfigurasi...</p>
+                <p id="pwa-install-hint" class="text-xs text-amber-300 mt-2"></p>
+            </div>
+            <button type="button" id="pwa-dialog-done" class="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl">OK</button>
+        </div>
+    </div>
     <script>
-        // A single manifest supports Windows/macOS/Linux desktop and Android/iOS mobile.
+        // v2: the button is always visible. Browser-native prompts only exist on eligible clients.
         (() => {
-            const installButton = document.getElementById('pwa-install-btn');
-            let deferredInstallPrompt = null;
-            const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches ||
-                window.navigator.standalone === true;
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const btn = document.getElementById('pwa-install-btn');
+            const modal = document.getElementById('pwa-install-modal');
+            const instructions = document.getElementById('pwa-install-instructions');
+            const checks = document.getElementById('pwa-install-checks');
+            const hint = document.getElementById('pwa-install-hint');
+            let deferredPrompt = null;
+            let swRegistrationError = '';
+            const installed = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+            const ua = navigator.userAgent;
+            const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isAndroid = /Android/i.test(ua);
+            const isEdge = /Edg\//i.test(ua);
+            const isChrome = /Chrome\/|CriOS\//i.test(ua);
 
-            if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('./service-worker.js', { scope: './' })
-                        .catch(err => console.warn('PWA registration:', err));
-                });
+            function updateButton() {
+                if (installed()) {
+                    btn.textContent = '✓ App Installed';
+                    btn.disabled = true;
+                    btn.title = 'Fleet Health sudah dibuka dalam mode aplikasi';
+                } else {
+                    btn.textContent = '⬇ Install App';
+                    btn.disabled = false;
+                }
             }
+            function helpText() {
+                if (isIOS) {
+                    return '1. Buka alamat ini di Safari.\n2. Tekan tombol Share (kotak dengan panah ke atas).\n3. Pilih Add to Home Screen / Tambah ke Layar Utama.\n4. Tekan Add.\n\nCatatan: iPhone/iPad tidak menyediakan prompt install otomatis seperti Chrome Android.';
+                }
+                if (isAndroid) {
+                    return '1. Buka alamat ini menggunakan Chrome.\n2. Ketuk menu ⋮ di kanan atas.\n3. Pilih Install app / Tambahkan ke layar utama.\n4. Ikuti konfirmasi di layar.\n\nJika opsi Install belum tersedia, lihat hasil pemeriksaan di bawah.';
+                }
+                if (isEdge) {
+                    return '1. Di Microsoft Edge, klik menu ⋯ di kanan atas.\n2. Pilih Apps / Aplikasi.\n3. Klik Install this site as an app.\n4. Konfirmasi Install.\n\nJika opsi tidak tersedia, lihat hasil pemeriksaan di bawah.';
+                }
+                if (isChrome) {
+                    return '1. Di Google Chrome, lihat ikon install di sisi kanan address bar.\n2. Jika tidak ada, buka menu ⋮ di kanan atas.\n3. Cari opsi Install page as app / Instal halaman sebagai aplikasi (biasanya di Cast, save and share / Simpan dan bagikan).\n4. Ikuti konfirmasi instalasi.\n\nNama menu bisa berbeda menurut versi Chrome.';
+                }
+                return 'Untuk PC, coba buka menggunakan Chrome atau Microsoft Edge dan pilih opsi Install page as app dari menu browser.\nUntuk iPhone/iPad, buka menggunakan Safari lalu Share → Add to Home Screen.\nUntuk Android, gunakan Chrome → menu ⋮ → Install app.';
+            }
+            async function checkSetup() {
+                const messages = [];
+                messages.push(window.isSecureContext ? '✓ HTTPS / secure context: OK' : '✕ Koneksi tidak aman: website wajib HTTPS (kecuali localhost).');
+                const manifestHref = new URL('./manifest.webmanifest', location.href).href;
+                try {
+                    const resp = await fetch(manifestHref, { cache: 'no-store' });
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    const manifest = await resp.json();
+                    if (!manifest.name || !manifest.start_url || !manifest.icons?.length) throw new Error('Field manifest wajib tidak lengkap');
+                    messages.push('✓ manifest.webmanifest: terbaca');
+                    const icon192 = (manifest.icons || []).find(x => /192x192/.test(x.sizes || ''));
+                    if (!icon192) {
+                        messages.push('✕ Ikon 192x192 tidak tercantum pada manifest');
+                    } else {
+                        const iconUrl = new URL(icon192.src, manifestHref);
+                        const iconResp = await fetch(iconUrl.href, { cache: 'no-store' });
+                        messages.push(iconResp.ok ? '✓ Ikon aplikasi 192x192: tersedia' : '✕ Ikon 192x192: HTTP ' + iconResp.status);
+                    }
+                } catch (err) {
+                    messages.push('✕ Manifest: gagal dibaca (' + String(err.message || err) + ')');
+                }
+                if (!('serviceWorker' in navigator)) {
+                    messages.push('✕ Browser tidak mendukung Service Worker');
+                } else {
+                    try {
+                        const reg = await navigator.serviceWorker.getRegistration('./');
+                        messages.push(reg ? '✓ Service Worker: ' + (reg.active ? 'aktif' : 'terdaftar, sedang aktivasi') : '⚠ Service Worker: belum terdaftar; refresh setelah membuka lewat HTTPS');
+                    } catch (err) {
+                        messages.push('✕ Service Worker: ' + String(err.message || err));
+                    }
+                }
+                if (swRegistrationError) messages.push('⚠ Pendaftaran Service Worker: ' + swRegistrationError);
+                messages.push(deferredPrompt ? '✓ Prompt install otomatis: tersedia' : 'ℹ Prompt otomatis: belum diberikan oleh browser');
+                checks.textContent = messages.join('\n');
+                hint.textContent = window.isSecureContext
+                    ? 'Jika semua pemeriksaan OK tetapi prompt belum tersedia, gunakan menu install bawaan browser atau coba refresh.'
+                    : 'Aktifkan SSL/HTTPS di hosting. PWA tidak bisa di-install secara normal dari website HTTP biasa.';
+            }
+            function showHelp() {
+                instructions.textContent = helpText();
+                checks.textContent = 'Memeriksa konfigurasi...';
+                hint.textContent = '';
+                modal.hidden = false;
+                checkSetup().catch(err => { checks.textContent = 'Pemeriksaan gagal: ' + err.message; });
+            }
+            function closeHelp() { modal.hidden = true; }
+            document.getElementById('pwa-dialog-close').addEventListener('click', closeHelp);
+            document.getElementById('pwa-dialog-done').addEventListener('click', closeHelp);
+            modal.addEventListener('click', e => { if (e.target === modal) closeHelp(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeHelp(); });
 
-            const hideInstall = () => { installButton.hidden = true; };
-            if (isIOS && !isInstalled()) {
-                installButton.hidden = false;
-                installButton.textContent = '⬇ Add to Home Screen';
-            }
-            window.addEventListener('beforeinstallprompt', event => {
-                event.preventDefault();
-                deferredInstallPrompt = event;
-                if (!isInstalled()) installButton.hidden = false;
+            window.addEventListener('beforeinstallprompt', e => {
+                e.preventDefault();
+                deferredPrompt = e;
+                updateButton();
             });
             window.addEventListener('appinstalled', () => {
-                deferredInstallPrompt = null;
-                hideInstall();
+                deferredPrompt = null;
+                updateButton();
             });
-            installButton.addEventListener('click', async () => {
-                if (deferredInstallPrompt) {
-                    const prompt = deferredInstallPrompt;
-                    deferredInstallPrompt = null;
-                    hideInstall();
-                    await prompt.prompt();
-                } else if (isIOS && !isInstalled()) {
-                    alert('iPhone/iPad: Open this website in Safari, tap Share, then choose Add to Home Screen.');
-                }
+            btn.addEventListener('click', async () => {
+                if (installed()) return;
+                if (deferredPrompt) {
+                    const p = deferredPrompt;
+                    deferredPrompt = null;
+                    try {
+                        await p.prompt();
+                        const result = await p.userChoice;
+                        if (result?.outcome !== 'accepted') showHelp();
+                    } catch (err) { showHelp(); }
+                    updateButton();
+                } else showHelp();
             });
+            if ('serviceWorker' in navigator && window.isSecureContext) {
+                window.addEventListener('load', async () => {
+                    try {
+                        await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+                    } catch (err) {
+                        swRegistrationError = String(err.message || err);
+                        console.warn('PWA service worker registration:', err);
+                    }
+                });
+            }
+            updateButton();
         })();
     </script>
 </body>
