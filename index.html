@@ -60,8 +60,8 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">Dynamic Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.3 Interactive Chart Health Filtering Active</p>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.9 AMT Maintenance History Direct Column Integration Active</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -74,8 +74,8 @@
                     </select>
                 </div>
                 <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
-                <button id="pwa-install-btn" type="button" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard sebagai aplikasi">⬇ Install App</button>
-                <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync</button>
+                <button id="pwa-install-btn" type="button" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard as application">⬇ Install App</button>
+                <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync Data</button>
             </div>
         </header>
 
@@ -86,7 +86,7 @@
                     <h2 class="text-xs font-bold uppercase tracking-wider text-blue-400">📊 Fleet Health (%)</h2>
                     <span id="chart-model-label" class="text-[10px] theme-text-sub font-mono">ALL</span>
                 </div>
-                <div class="relative w-full max-w-[180px] h-[150px] flex items-center justify-center cursor-pointer" title="Klik bagian chart untuk memfilter status komponen">
+                <div class="relative w-full max-w-[180px] h-[150px] flex items-center justify-center cursor-pointer" title="Click chart segments to filter component status">
                     <canvas id="healthChart"></canvas>
                 </div>
                 <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold w-full mt-3">
@@ -106,7 +106,7 @@
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-800/40 flex justify-between items-center text-xs">
                     <div id="unit-counter" class="theme-text-sub font-medium">Loading records...</div>
-                    <span class="text-emerald-400 font-semibold">💡 Klik warna Chart untuk filter Normal/Caution/Critical</span>
+                    <span class="text-emerald-400 font-semibold">💡 Click chart colors to filter Normal / Caution / Critical</span>
                 </div>
             </div>
         </div>
@@ -123,7 +123,7 @@
         <div class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
                 <h3 id="matrix-title" class="text-xs font-bold uppercase tracking-wider">Fleet Component Matrix (All Status)</h3>
-                <span class="text-[10px] theme-text-sub">Tap ID for Asset Details & Excel Export</span>
+                <span class="text-[10px] theme-text-sub">Tap Asset ID for Details & Excel Export</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -136,7 +136,7 @@
         </div>
     </div>
 
-    <!-- MODAL POPUP FOR ASSET DETAIL & EXCEL EXPORT -->
+    <!-- MODAL 1: ASSET COMPONENT DETAIL -->
     <div id="asset-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
         <div class="theme-card w-full max-w-5xl rounded-2xl border shadow-2xl p-4 sm:p-6 max-h-[95vh] overflow-y-auto relative flex flex-col">
             <div class="flex justify-between items-center pb-4 mb-4 border-b border-slate-700">
@@ -153,11 +153,64 @@
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 mb-3 rounded-lg bg-slate-950 border border-slate-800 text-xs">
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Asset ID</span><span id="modal-asset-id" class="font-extrabold text-xs text-blue-400">-</span></div>
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Model / Type</span><span id="modal-model" class="font-bold text-xs">-</span></div>
-                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Serial Number (S/N)</span><span id="modal-serial" class="font-mono font-bold text-xs">-</span></div>
+                    <div>
+                        <span class="text-slate-400 block text-[9px] uppercase font-semibold">Serial Number (S/N)</span>
+                        <button onclick="openAmtHistoryFromModal()" class="text-blue-400 hover:text-blue-300 underline font-mono font-extrabold text-xs flex items-center gap-1 cursor-pointer" title="Click to view AMT Maintenance History">
+                            <span id="modal-serial">-</span> <span class="text-[9px] bg-blue-900/60 px-1 py-0.2 rounded border border-blue-700">🛠️ AMT History</span>
+                        </button>
+                    </div>
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Current SMU / Life</span><span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span></div>
                 </div>
                 <h3 class="text-[11px] font-bold uppercase tracking-wider mb-2 text-slate-300">Component Health & Maintenance Details</h3>
                 <div id="modal-components-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: MAINTENANCE HISTORY (AMT DATA) -->
+    <div id="amt-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div class="theme-card w-full max-w-6xl rounded-2xl border shadow-2xl p-4 sm:p-6 max-h-[95vh] overflow-y-auto relative flex flex-col">
+            <div class="flex justify-between items-center pb-4 mb-4 border-b border-slate-700">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🛠️</span>
+                    <div>
+                        <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider">Asset Maintenance History (AMT)</h2>
+                        <p class="text-[10px] theme-text-sub" id="amt-modal-subtitle">Loading records...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeAmtModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">✕ Close</button>
+                </div>
+            </div>
+
+            <!-- AMT Quick Filter Search & Legend -->
+            <div class="mb-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <input type="text" id="amt-search-input" onkeyup="filterAmtTable()" placeholder="🔍 Search maintenance history (WO, Job Code, Description)..." class="w-full sm:w-96 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 outline-none focus:border-blue-500">
+                <div class="flex items-center gap-2 text-[10px] font-semibold">
+                    <span class="text-slate-400">WO Status Legend:</span>
+                    <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded">C = Complete</span>
+                    <span class="bg-amber-950 text-amber-400 border border-amber-800 px-1.5 py-0.5 rounded">O = Outstanding</span>
+                    <span class="bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded">YTS = Yet to Start</span>
+                </div>
+                <span id="amt-record-count" class="text-[10px] theme-text-sub font-mono">0 records found</span>
+            </div>
+
+            <div class="table-container rounded-xl border border-slate-800">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="text-slate-400 uppercase text-[10px] tracking-wider bg-slate-950">
+                        <tr>
+                            <th class="p-2.5 border-b border-slate-800">Plan Start Date / Duration</th>
+                            <th class="p-2.5 border-b border-slate-800">Work Order (WO)</th>
+                            <th class="p-2.5 border-b border-slate-800">Job Code / Modifier</th>
+                            <th class="p-2.5 border-b border-slate-800 text-center">Work Order Status</th>
+                            <th class="p-2.5 border-b border-slate-800 text-center">Age (Days)</th>
+                            <th class="p-2.5 border-b border-slate-800">Description / Repair Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="amt-table-body" class="divide-y divide-slate-800/80 bg-slate-900/50">
+                        <tr><td colspan="6" class="p-6 text-center theme-text-sub">Select an asset serial number to view maintenance history.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -169,15 +222,18 @@
 
     <script>
         const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
+        const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmjG03oV3wiaLMa-uLWYwfLbPEdZRIcwYwWvWGTLvj_aZg6-f-seh-OQ/pub?output=csv&t=" + new Date().getTime();
 
         let rawRowsGlobal = [];
         let globalFleetData = [];
+        let amtRowsGlobal = [];
         let allUniqueComponents = new Set();
         let allUniqueModels = new Set();
         let healthChartInstance = null;
         let activeModalAsset = null;
         let currentSelectedModel = 'ALL';
-        let currentStatusFilter = 'ALL'; // 'ALL', 'Normal', 'Caution', 'Critical'
+        let currentStatusFilter = 'ALL';
+        let activeAmtRecords = [];
 
         const preferredComponentOrder = [
             "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
@@ -274,14 +330,13 @@
 
         async function fetchAllData(forceRefresh = true) {
             const statusEl = document.getElementById('sync-status');
-            // Keep the previous successful sync available during refresh and offline use.
             if (!rawRowsGlobal.length) {
                 const previous = localStorage.getItem('smartfleet_main_csv');
                 if (previous) {
                     try {
                         rawRowsGlobal = JSON.parse(previous);
                         processRawRows(rawRowsGlobal);
-                    } catch (_) { /* Ignore corrupted cache; fetch fresh data. */ }
+                    } catch (_) {}
                 }
             }
             statusEl.innerText = 'Syncing...';
@@ -293,9 +348,12 @@
                     rawRowsGlobal = mainRes;
                     processRawRows(mainRes);
                     localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes));
-                    statusEl.innerText = '✓ Synced';
-                    statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
                 }
+                
+                fetchAmtData();
+
+                statusEl.innerText = '✓ Synced';
+                statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
             } catch (err) {
                 const cachedMain = localStorage.getItem('smartfleet_main_csv');
                 if (cachedMain) {
@@ -312,6 +370,21 @@
                     statusEl.innerText = 'Offline · No cached data';
                     statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
                     document.getElementById('status-cell').textContent = 'Connect to the internet to load and cache fleet data at least once.';
+                }
+            }
+        }
+
+        async function fetchAmtData() {
+            try {
+                const amtRes = await fetchWithTimeout(amtUrlData.replace(/&t=\d+$/, '') + '&t=' + Date.now());
+                if (amtRes && amtRes.length > 0) {
+                    amtRowsGlobal = amtRes;
+                    localStorage.setItem('smartfleet_amt_csv', JSON.stringify(amtRes));
+                }
+            } catch (e) {
+                const cachedAmt = localStorage.getItem('smartfleet_amt_csv');
+                if (cachedAmt) {
+                    try { amtRowsGlobal = JSON.parse(cachedAmt); } catch (_) {}
                 }
             }
         }
@@ -394,7 +467,7 @@
             let html = `
                 <button onclick="selectModel('ALL')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-bold transition shadow-md cursor-pointer ${currentSelectedModel === 'ALL' ? 'bg-blue-600 border-blue-500 text-white' : 'theme-card hover:bg-slate-800/50 theme-text-sub'}">
                     <div class="w-10 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1 v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
                     </div>
                     <div class="text-left flex flex-col">
                         <span class="text-sm tracking-wider">All Fleet</span>
@@ -519,7 +592,6 @@
                 let fallbackLife = '-';
                 for (let k in row.components) { if (row.components[k].life !== '-') { fallbackLife = row.components[k].life; break; } }
 
-                // Check if row has any component matching statusFilter (when filtering)
                 let hasMatchingComponent = false;
                 compList.forEach(comp => {
                     let cd = row.components[comp];
@@ -536,7 +608,7 @@
                     }
                 });
 
-                if (statusFilter !== 'ALL' && !hasMatchingComponent) return; // Skip row if no component matches filter
+                if (statusFilter !== 'ALL' && !hasMatchingComponent) return;
 
                 let tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/20 transition border-b border-slate-800/40";
@@ -560,7 +632,6 @@
                     let actionDisplay = (cd.action && cd.action !== '-') ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` : '';
                     let trendDotsDisplay = renderTrendDots(cd.trend);
 
-                    // If statusFilter is active, hide/dim non-matching component boxes for clarity
                     let isDimmed = false;
                     if (statusFilter !== 'ALL') {
                         if (statusFilter === 'Normal' && !stLower.includes('normal')) isDimmed = true;
@@ -651,6 +722,138 @@
             document.getElementById('asset-modal').classList.add('hidden');
         }
 
+        // --- AMT MAINTENANCE HISTORY FUNCTIONS ---
+        async function openAmtHistoryFromModal() {
+            if (!activeModalAsset) return;
+            const assetId = activeModalAsset.assetId;
+            const serialNo = activeModalAsset.serialNo;
+
+            document.getElementById('amt-modal-subtitle').innerText = `Equipment: ${assetId} | S/N: ${serialNo} | Model: ${activeModalAsset.model}`;
+            document.getElementById('amt-table-body').innerHTML = `<tr><td colspan="6" class="p-6 text-center text-amber-400">Loading AMT Maintenance History...</td></tr>`;
+            document.getElementById('amt-modal').classList.remove('hidden');
+
+            if (!amtRowsGlobal || amtRowsGlobal.length === 0) {
+                await fetchAmtData();
+            }
+
+            renderAmtHistoryTable(assetId, serialNo);
+        }
+
+        function renderAmtHistoryTable(assetId, serialNo) {
+            if (!amtRowsGlobal || amtRowsGlobal.length === 0) {
+                document.getElementById('amt-table-body').innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-400">No AMT records available or failed to fetch.</td></tr>`;
+                document.getElementById('amt-record-count').innerText = "0 records";
+                return;
+            }
+
+            const sampleRow = amtRowsGlobal[0];
+            const keys = Object.keys(sampleRow);
+            const assetKey = keys.find(k => /asset|unit|eq/i.test(k)) || keys[0];
+            const serialKey = keys.find(k => /serial|sn|s\/n/i.test(k));
+            const woKey = keys.find(k => /wo|work.*order|order/i.test(k)) || keys[1];
+            const dateKey = keys.find(k => /date|tanggal|completion|time|plan.*start/i.test(k));
+            const durationKey = keys.find(k => /duration|durasi|smu|meter|hours/i.test(k));
+            const jobCodeKey = keys.find(k => /job.*code|job|code|modifier/i.test(k));
+            const statusKey = keys.find(k => /^status$|wo.*status|state/i.test(k));
+            const ageKey = keys.find(k => /^age$|age.*days|umur|hari/i.test(k));
+            const descKey = keys.find(k => /desc|description|detail|repair|action|comment/i.test(k));
+
+            const targetAsset = assetId.toString().trim().toUpperCase();
+            const targetSerial = serialNo ? serialNo.toString().trim().toUpperCase() : '';
+
+            activeAmtRecords = amtRowsGlobal.filter(r => {
+                let rAsset = r[assetKey] ? r[assetKey].toString().trim().toUpperCase() : '';
+                let rSerial = serialKey && r[serialKey] ? r[serialKey].toString().trim().toUpperCase() : '';
+                return (rAsset === targetAsset || (targetSerial && targetSerial !== '-' && rSerial === targetSerial));
+            });
+
+            document.getElementById('amt-record-count').innerText = `${activeAmtRecords.length} records found`;
+            displayAmtRows(activeAmtRecords, { dateKey, durationKey, woKey, jobCodeKey, statusKey, ageKey, descKey });
+        }
+
+        function displayAmtRows(records, keys) {
+            const body = document.getElementById('amt-table-body');
+            if (records.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" class="p-6 text-center theme-text-sub">No maintenance history records found for this unit.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            records.forEach(r => {
+                let dateVal = keys.dateKey && r[keys.dateKey] ? r[keys.dateKey].toString().trim() : '-';
+                let durationVal = keys.durationKey && r[keys.durationKey] ? r[keys.durationKey].toString().trim() : '';
+                let woVal = keys.woKey && r[keys.woKey] ? r[keys.woKey].toString().trim() : '-';
+                let jobVal = keys.jobCodeKey && r[keys.jobCodeKey] ? r[keys.jobCodeKey].toString().trim() : '-';
+                
+                // Ambil langsung nilai status dari file AMT
+                let rawStatus = keys.statusKey && r[keys.statusKey] ? r[keys.statusKey].toString().trim() : '-';
+                let statusUpper = rawStatus.toUpperCase();
+
+                let statusBadge = '';
+                if (statusUpper.includes('C')) {
+                    statusBadge = `<span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-extrabold text-[10px]">C (Complete)</span>`;
+                } else if (statusUpper.includes('O')) {
+                    statusBadge = `<span class="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded font-extrabold text-[10px]">O (Outstanding)</span>`;
+                } else if (statusUpper.includes('YTS')) {
+                    statusBadge = `<span class="bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-extrabold text-[10px]">YTS (Yet to Start)</span>`;
+                } else {
+                    statusBadge = `<span class="bg-slate-900 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">${rawStatus}</span>`;
+                }
+                
+                let rawAge = keys.ageKey && r[keys.ageKey] ? r[keys.ageKey].toString().trim() : '-';
+                let ageDisplay = '-';
+                if (rawAge !== '-' && !isNaN(parseFloat(rawAge))) {
+                    let roundedAge = Math.round(parseFloat(rawAge));
+                    let badgeColor = roundedAge > 30 ? 'bg-rose-950 text-rose-400 border-rose-800' : (roundedAge > 14 ? 'bg-amber-950 text-amber-400 border-amber-800' : 'bg-slate-800 text-slate-300 border-slate-750');
+                    ageDisplay = `<span class="px-2 py-0.5 rounded border font-mono font-bold text-[10px] ${badgeColor}">${roundedAge} days</span>`;
+                }
+
+                let descVal = keys.descKey && r[keys.descKey] ? r[keys.descKey].toString().trim() : '-';
+
+                html += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 text-xs">
+                        <td class="p-2.5 font-mono">
+                            <span class="text-slate-200 block font-bold">📅 ${dateVal}</span>
+                            ${durationVal ? `<span class="text-[9px] text-amber-400 font-bold bg-amber-950/60 px-1 rounded">Duration: ${durationVal} hrs</span>` : ''}
+                        </td>
+                        <td class="p-2.5 font-mono text-blue-400 font-bold">${woVal}</td>
+                        <td class="p-2.5 font-mono text-slate-300">${jobVal}</td>
+                        <td class="p-2.5 text-center">${statusBadge}</td>
+                        <td class="p-2.5 text-center">${ageDisplay}</td>
+                        <td class="p-2.5 text-slate-300 leading-relaxed">${descVal}</td>
+                    </tr>
+                `;
+            });
+            body.innerHTML = html;
+        }
+
+        function filterAmtTable() {
+            const query = document.getElementById('amt-search-input').value.toLowerCase();
+            if (!activeAmtRecords || activeAmtRecords.length === 0) return;
+
+            const filtered = activeAmtRecords.filter(r => {
+                return Object.values(r).some(val => val && val.toString().toLowerCase().includes(query));
+            });
+
+            document.getElementById('amt-record-count').innerText = `${filtered.length} of ${activeAmtRecords.length} records`;
+            
+            const sampleRow = activeAmtRecords[0];
+            const keys = Object.keys(sampleRow);
+            const woKey = keys.find(k => /wo|work.*order|order/i.test(k)) || keys[1];
+            const dateKey = keys.find(k => /date|tanggal|completion|time|plan.*start/i.test(k));
+            const durationKey = keys.find(k => /duration|durasi|smu|meter|hours/i.test(k));
+            const jobCodeKey = keys.find(k => /job.*code|job|code|modifier/i.test(k));
+            const statusKey = keys.find(k => /^status$|wo.*status|state/i.test(k));
+            const ageKey = keys.find(k => /^age$|age.*days|umur|hari/i.test(k));
+            const descKey = keys.find(k => /desc|description|detail|repair|action|comment/i.test(k));
+
+            displayAmtRows(filtered, { dateKey, durationKey, woKey, jobCodeKey, statusKey, ageKey, descKey });
+        }
+
+        function closeAmtModal() {
+            document.getElementById('amt-modal').classList.add('hidden');
+        }
+
         function exportAssetExcel() {
             if (!activeModalAsset) return;
             const asset = activeModalAsset;
@@ -681,156 +884,6 @@
         }
 
         fetchAllData(true);
-    </script>
-    <!-- Install assistance: visible on all browsers, even before PWA eligibility is granted. -->
-    <div id="pwa-install-modal" hidden role="dialog" aria-modal="true" aria-labelledby="pwa-dialog-title" class="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center">
-        <div class="theme-card border rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-start gap-4 mb-4">
-                <div>
-                    <h2 id="pwa-dialog-title" class="text-lg font-bold text-cyan-400">Install Fleet Health</h2>
-                    <p class="text-xs theme-text-sub mt-1">Gunakan dashboard seperti aplikasi PC atau mobile.</p>
-                </div>
-                <button type="button" id="pwa-dialog-close" class="text-slate-400 hover:text-white text-lg px-2 py-1 rounded-lg border border-slate-700" aria-label="Close install guidance">✕</button>
-            </div>
-            <div class="bg-slate-900/70 border border-slate-700 rounded-xl p-3 mb-4">
-                <h3 class="text-xs font-bold text-white mb-2">Cara install di perangkat ini</h3>
-                <p id="pwa-install-instructions" class="text-sm text-slate-200 leading-relaxed whitespace-pre-line"></p>
-            </div>
-            <div class="border-t border-slate-700 pt-3">
-                <h3 class="text-xs font-bold text-slate-300 mb-2">Pemeriksaan PWA</h3>
-                <p id="pwa-install-checks" class="text-xs leading-6 whitespace-pre-line text-slate-300">Memeriksa konfigurasi...</p>
-                <p id="pwa-install-hint" class="text-xs text-amber-300 mt-2"></p>
-            </div>
-            <button type="button" id="pwa-dialog-done" class="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl">OK</button>
-        </div>
-    </div>
-    <script>
-        // v2: the button is always visible. Browser-native prompts only exist on eligible clients.
-        (() => {
-            const btn = document.getElementById('pwa-install-btn');
-            const modal = document.getElementById('pwa-install-modal');
-            const instructions = document.getElementById('pwa-install-instructions');
-            const checks = document.getElementById('pwa-install-checks');
-            const hint = document.getElementById('pwa-install-hint');
-            let deferredPrompt = null;
-            let swRegistrationError = '';
-            const installed = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-            const ua = navigator.userAgent;
-            const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            const isAndroid = /Android/i.test(ua);
-            const isEdge = /Edg\//i.test(ua);
-            const isChrome = /Chrome\/|CriOS\//i.test(ua);
-
-            function updateButton() {
-                if (installed()) {
-                    btn.textContent = '✓ App Installed';
-                    btn.disabled = true;
-                    btn.title = 'Fleet Health sudah dibuka dalam mode aplikasi';
-                } else {
-                    btn.textContent = '⬇ Install App';
-                    btn.disabled = false;
-                }
-            }
-            function helpText() {
-                if (isIOS) {
-                    return '1. Buka alamat ini di Safari.\n2. Tekan tombol Share (kotak dengan panah ke atas).\n3. Pilih Add to Home Screen / Tambah ke Layar Utama.\n4. Tekan Add.\n\nCatatan: iPhone/iPad tidak menyediakan prompt install otomatis seperti Chrome Android.';
-                }
-                if (isAndroid) {
-                    return '1. Buka alamat ini menggunakan Chrome.\n2. Ketuk menu ⋮ di kanan atas.\n3. Pilih Install app / Tambahkan ke layar utama.\n4. Ikuti konfirmasi di layar.\n\nJika opsi Install belum tersedia, lihat hasil pemeriksaan di bawah.';
-                }
-                if (isEdge) {
-                    return '1. Di Microsoft Edge, klik menu ⋯ di kanan atas.\n2. Pilih Apps / Aplikasi.\n3. Klik Install this site as an app.\n4. Konfirmasi Install.\n\nJika opsi tidak tersedia, lihat hasil pemeriksaan di bawah.';
-                }
-                if (isChrome) {
-                    return '1. Di Google Chrome, lihat ikon install di sisi kanan address bar.\n2. Jika tidak ada, buka menu ⋮ di kanan atas.\n3. Cari opsi Install page as app / Instal halaman sebagai aplikasi (biasanya di Cast, save and share / Simpan dan bagikan).\n4. Ikuti konfirmasi instalasi.\n\nNama menu bisa berbeda menurut versi Chrome.';
-                }
-                return 'Untuk PC, coba buka menggunakan Chrome atau Microsoft Edge dan pilih opsi Install page as app dari menu browser.\nUntuk iPhone/iPad, buka menggunakan Safari lalu Share → Add to Home Screen.\nUntuk Android, gunakan Chrome → menu ⋮ → Install app.';
-            }
-            async function checkSetup() {
-                const messages = [];
-                messages.push(window.isSecureContext ? '✓ HTTPS / secure context: OK' : '✕ Koneksi tidak aman: website wajib HTTPS (kecuali localhost).');
-                const manifestHref = new URL('./manifest.webmanifest', location.href).href;
-                try {
-                    const resp = await fetch(manifestHref, { cache: 'no-store' });
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                    const manifest = await resp.json();
-                    if (!manifest.name || !manifest.start_url || !manifest.icons?.length) throw new Error('Field manifest wajib tidak lengkap');
-                    messages.push('✓ manifest.webmanifest: terbaca');
-                    const icon192 = (manifest.icons || []).find(x => /192x192/.test(x.sizes || ''));
-                    if (!icon192) {
-                        messages.push('✕ Ikon 192x192 tidak tercantum pada manifest');
-                    } else {
-                        const iconUrl = new URL(icon192.src, manifestHref);
-                        const iconResp = await fetch(iconUrl.href, { cache: 'no-store' });
-                        messages.push(iconResp.ok ? '✓ Ikon aplikasi 192x192: tersedia' : '✕ Ikon 192x192: HTTP ' + iconResp.status);
-                    }
-                } catch (err) {
-                    messages.push('✕ Manifest: gagal dibaca (' + String(err.message || err) + ')');
-                }
-                if (!('serviceWorker' in navigator)) {
-                    messages.push('✕ Browser tidak mendukung Service Worker');
-                } else {
-                    try {
-                        const reg = await navigator.serviceWorker.getRegistration('./');
-                        messages.push(reg ? '✓ Service Worker: ' + (reg.active ? 'aktif' : 'terdaftar, sedang aktivasi') : '⚠ Service Worker: belum terdaftar; refresh setelah membuka lewat HTTPS');
-                    } catch (err) {
-                        messages.push('✕ Service Worker: ' + String(err.message || err));
-                    }
-                }
-                if (swRegistrationError) messages.push('⚠ Pendaftaran Service Worker: ' + swRegistrationError);
-                messages.push(deferredPrompt ? '✓ Prompt install otomatis: tersedia' : 'ℹ Prompt otomatis: belum diberikan oleh browser');
-                checks.textContent = messages.join('\n');
-                hint.textContent = window.isSecureContext
-                    ? 'Jika semua pemeriksaan OK tetapi prompt belum tersedia, gunakan menu install bawaan browser atau coba refresh.'
-                    : 'Aktifkan SSL/HTTPS di hosting. PWA tidak bisa di-install secara normal dari website HTTP biasa.';
-            }
-            function showHelp() {
-                instructions.textContent = helpText();
-                checks.textContent = 'Memeriksa konfigurasi...';
-                hint.textContent = '';
-                modal.hidden = false;
-                checkSetup().catch(err => { checks.textContent = 'Pemeriksaan gagal: ' + err.message; });
-            }
-            function closeHelp() { modal.hidden = true; }
-            document.getElementById('pwa-dialog-close').addEventListener('click', closeHelp);
-            document.getElementById('pwa-dialog-done').addEventListener('click', closeHelp);
-            modal.addEventListener('click', e => { if (e.target === modal) closeHelp(); });
-            document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeHelp(); });
-
-            window.addEventListener('beforeinstallprompt', e => {
-                e.preventDefault();
-                deferredPrompt = e;
-                updateButton();
-            });
-            window.addEventListener('appinstalled', () => {
-                deferredPrompt = null;
-                updateButton();
-            });
-            btn.addEventListener('click', async () => {
-                if (installed()) return;
-                if (deferredPrompt) {
-                    const p = deferredPrompt;
-                    deferredPrompt = null;
-                    try {
-                        await p.prompt();
-                        const result = await p.userChoice;
-                        if (result?.outcome !== 'accepted') showHelp();
-                    } catch (err) { showHelp(); }
-                    updateButton();
-                } else showHelp();
-            });
-            if ('serviceWorker' in navigator && window.isSecureContext) {
-                window.addEventListener('load', async () => {
-                    try {
-                        await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
-                    } catch (err) {
-                        swRegistrationError = String(err.message || err);
-                        console.warn('PWA service worker registration:', err);
-                    }
-                });
-            }
-            updateButton();
-        })();
     </script>
 </body>
 </html>
