@@ -38,6 +38,12 @@
         .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
         .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
         .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
+        /* Style Gradasi & Tanda Centang untuk WO yang sudah Done */
+        .badge-done-gradasi {
+            background: linear-gradient(135deg, #fde8e8 0%, #fef08a 100%);
+            color: #78350f;
+            border: 2px solid #f59e0b;
+        }
         .comp-cell { width: 185px; min-width: 185px; max-width: 185px; }
         .table-container { max-height: 70vh; overflow-y: auto; overflow-x: auto; position: relative; }
         thead th { position: sticky; top: 0; z-index: 20; background-color: var(--sticky-head) !important; box-shadow: inset 0 -1px 0 var(--border-color); }
@@ -61,7 +67,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 6.0 Done Tooltip Caution Rule Active</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 6.2 Gradation & Checkmark Done Feature Active</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -443,11 +449,6 @@
 
                 let workOrderVal = workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-';
 
-                // --- ATURAN BARU: JIKA TOOL TIPS / WORK ORDER BERTULISKAN "Done", UBAH JADI CAUTION ---
-                if (workOrderVal.toLowerCase() === 'done' && rawStatus.toLowerCase() === 'normal') {
-                    rawStatus = 'Caution';
-                }
-
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
                 let roundedLife = formatRoundedHours(rawMeter);
                 let cleanElements = parseWearElements(elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '');
@@ -634,7 +635,23 @@
                     else if (cd.life === '-' && fallbackLife !== '-') cd.life = fallbackLife;
 
                     let stLower = cd.status.toLowerCase();
-                    let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
+                    let isDone = cd.workOrder.toLowerCase() === 'done';
+
+                    // --- ATURAN BADGE: JIKA DONE, BERIKAN EFEK GRADASI & TANDA CENTANG (✔️) ---
+                    let badgeClass = '';
+                    let statusLabelText = cd.status;
+
+                    if (isDone) {
+                        badgeClass = 'badge-done-gradasi';
+                        statusLabelText = `${cd.status} ✔️ Done`;
+                    } else if (stLower.includes('critical')) {
+                        badgeClass = 'badge-critical';
+                    } else if (stLower.includes('caution') || stLower.includes('monitor')) {
+                        badgeClass = 'badge-caution';
+                    } else {
+                        badgeClass = 'badge-normal';
+                    }
+
                     let elementDisplay = (cd.elements && cd.elements !== '-') ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-0.5 text-[9px]"><span class="font-extrabold text-rose-300 block">⚠️ ${cd.elements}</span></div>` : '';
                     let actionDisplay = (cd.action && cd.action !== '-') ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` : '';
                     let trendDotsDisplay = renderTrendDots(cd.trend);
@@ -652,7 +669,7 @@
                         <td class="p-2 border-r border-slate-800/60 comp-cell align-top ${opacityStyle} transition">
                             <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[115px]">
                                 <div>
-                                    <div class="flex justify-between items-center"><span class="font-bold">${cd.status}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
+                                    <div class="flex justify-between items-center"><span class="font-bold">${statusLabelText}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
                                     ${elementDisplay}
                                     ${actionDisplay}
                                 </div>
@@ -698,15 +715,17 @@
             compList.forEach(comp => {
                 let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
                 let stLower = cd.status.toLowerCase();
-                let badgeClass = stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal');
+                let isDone = cd.workOrder.toLowerCase() === 'done';
+                let badgeClass = isDone ? 'badge-done-gradasi' : (stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal'));
                 let trendDotsDisplay = renderTrendDots(cd.trend);
+                let statusText = isDone ? `${cd.status} ✔️ Done` : cd.status;
 
                 gridHTML += `
                     <div class="p-3 rounded-xl border border-slate-700 ${badgeClass} text-[10px] flex flex-col justify-between shadow-md">
                         <div>
                             <div class="flex justify-between items-center font-bold mb-1 border-b border-black/10 pb-1">
                                 <span class="uppercase text-slate-900 font-extrabold text-xs">${comp}</span>
-                                <span class="bg-white/90 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">${cd.status}</span>
+                                <span class="bg-white/90 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">${statusText}</span>
                             </div>
                             <div class="text-[10px] text-slate-800 mb-1">Component Life: <b>${cd.life}</b></div>
                             ${cd.elements !== '-' ? `<div class="text-[9px] text-rose-800 font-extrabold bg-rose-200/80 px-1.5 py-0.5 rounded mb-1">⚠️ Elements: ${cd.elements}</div>` : ''}
