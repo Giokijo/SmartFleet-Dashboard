@@ -15,14 +15,12 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script async src="https://cdn.tailwindcss.com"></script>
     <!-- PapaParse for Fast CSV Parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script async src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <!-- Chart.js for Visual Health Analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS for Native Excel (.xlsx) Export -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/chart.js" onload="if(typeof refreshLateChart === 'function') refreshLateChart()"></script>
+    <!-- ExcelJS / SheetJS are lazy-loaded when Export is clicked (not on startup). -->
     <style>
     :root {color-scheme: dark; --accent:#38bdf8; --accent-2:#818cf8; --shadow:0 14px 34px rgba(0,0,0,.17)}
     [data-theme="slate"] {--bg-main:#060c1c;--bg-card:rgba(15,23,42,.80);--border-color:rgba(148,163,184,.16);--text-main:#f4f7ff;--text-sub:#94a3b8;--sticky-col:#101c32;--sticky-head:#111e35;--input-bg:rgba(15,23,42,.75);--hover-bg:rgba(56,189,248,.075)}
@@ -93,7 +91,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.1 · SMU-linked unmonitored cells & WO Done highlighting</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.2 · Fast Sync · SMU-linked normal tiles & WO Done highlighting</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -268,7 +266,7 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet · Condition monitoring · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.2 · Fast Sync · Condition monitoring · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -283,6 +281,24 @@ let healthChartInstance = null;
 let activeModalAsset = null, activeAmtRecords = [], activeAmtKeys = null, lastSuccessfulSync = null;
 let currentSelectedModel = 'ALL', currentStatusFilter = 'ALL', currentSearch = '', currentSort = 'asset';
 let pendingInstallPrompt = null, syncing = false;
+let matrixRenderGeneration = 0, searchInputTimer = null, amtInFlight = null;
+const cacheWriteSequence = new Map();
+const SYNC_TIMEOUT_MS = 9500;
+const PROXY_HEDGE_DELAY_MS = 1500;
+const CACHE_REUSE_MS = 60000; // reloading within one minute need not re-download the feed.
+
+function deferCacheWrite(key,rows,syncTimestamp=null){
+  const seq=(cacheWriteSequence.get(key)||0)+1;
+  cacheWriteSequence.set(key,seq);
+  const run=()=>{
+    if(cacheWriteSequence.get(key)!==seq)return;
+    const saved=cachedSet(key,rows);
+    if(saved&&syncTimestamp){try{localStorage.setItem('smartfleet_sync_at',syncTimestamp)}catch(e){}}
+  };
+  if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:2000});else setTimeout(run,0);
+}
+function nextPaint(){return new Promise(resolve=>requestAnimationFrame(()=>resolve()))}
+function formatElapsed(start){return ((performance.now()-start)/1000).toFixed(1)+'s'}
 
 function safeText(value) { return String(value ?? '').trim(); }
 function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -564,11 +580,26 @@ function buildCard(cd,dim=false,assetReferenceSmu='-'){
   return `<div class="health-card ${cls} ${dim?'opacity-25 grayscale':''}" ${isPlaceholder?'data-not-monitored="true" title="No source record (visual Normal placeholder only)"':`title="${escapeHtml(item.action)}"`}><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${severity}</strong><span class="life-pill" title="Component life / reference SMU">${life}</span></div>${donePill}${elements}${action}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line">${sample}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trend||'<span class="value-line"></span>'}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line">${wo}</span></div></div></div>`;
 }
 function renderTable(data,components){
+  const generation=++matrixRenderGeneration;
   const head=document.getElementById('matrix-head'),body=document.getElementById('matrix-body');
   head.innerHTML=`<tr><th class="p-3 sticky-asset-col w-36 min-w-[144px] text-xs text-sky-400">Asset ID</th>${components.map(comp=>`<th data-component="${escapeHtml(comp)}" class="p-3 comp-cell text-center text-[10px] border-r border-slate-700/30">${escapeHtml(comp)}</th>`).join('')}</tr>`;
   if(!data.length){body.innerHTML=`<tr><td class="p-8 text-center theme-text-sub" colspan="${components.length+1}">No matching assets. Change the filters or search criteria.</td></tr>`;return;}
-  // Render in one batch to avoid expensive incremental reflows for the fleet matrix.
-  body.innerHTML=data.map(unit=>`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,getAssetReferenceSmu(unit))}</td>`).join('')}</tr>`).join('');
+  // Keep the first section responsive, then spread DOM insertion over paint frames.
+  // Never recompute the reference SMU once for every component in a given unit.
+  const batchSize=Math.max(8,Math.min(35,Math.floor(500/Math.max(1,components.length))));
+  const addBatch=(start)=>{
+    if(generation!==matrixRenderGeneration)return; // A newer filter/search cancelled this render.
+    const end=Math.min(data.length,start+batchSize);
+    let html='';
+    for(let i=start;i<end;i++){
+      const unit=data[i];
+      const referenceSmu=getAssetReferenceSmu(unit);
+      html+=`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,referenceSmu)}</td>`).join('')}</tr>`;
+    }
+    if(start===0)body.innerHTML=html;else body.insertAdjacentHTML('beforeend',html);
+    if(end<data.length)requestAnimationFrame(()=>addBatch(end));
+  };
+  addBatch(0);
 }
 function openAssetDetail(assetId){
   const asset=globalFleetData.find(a=>a.assetId===assetId);if(!asset)return;
@@ -606,6 +637,10 @@ async function openAmtHistoryFromModal(){
   document.getElementById('amt-search-input').value='';
   document.getElementById('amt-table-body').innerHTML='<tr><td colspan="6" class="p-6 text-center text-amber-400">Loading maintenance history...</td></tr>';
   showModal('amt-modal');
+  if(!amtRowsGlobal.length){
+    const cachedAmt=cachedGet('smartfleet_amt_csv');
+    if(Array.isArray(cachedAmt)&&cachedAmt.length)amtRowsGlobal=cachedAmt;
+  }
   if(!amtRowsGlobal.length)await fetchAmtData();
   activeAmtKeys=findAmtColumns(amtRowsGlobal);
   if(!activeAmtKeys){activeAmtRecords=[];renderAmtHistoryTable([]);return}
@@ -647,40 +682,178 @@ function setSyncStatus(kind,label){
   el.className=`text-xs px-3 py-1.5 rounded-lg border ${palettes[kind]||palettes.ready}`;
 }
 function dataMeta(label){document.getElementById('data-meta').textContent=label}
-async function fetchCsv(url,timeoutMs=13000){
-  if(!window.Papa)throw new Error('CSV parser could not be loaded. Check internet connectivity.');
-  const withStamp=url+(url.includes('?')?'&':'?')+'t='+Date.now();
-  const attempt=async(target,ms)=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);try{
-    const response=await fetch(target,{signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);
-    const csv=await response.text();if(!csv.trim())throw new Error('Empty data feed');
-    const parsed=Papa.parse(csv,{header:true,skipEmptyLines:'greedy',transformHeader:x=>x.trim()});
-    if(!parsed.data?.length)throw new Error('No records');
-    return parsed.data;
-  }finally{clearTimeout(timer)}};
-  try{return await attempt(withStamp,timeoutMs)}catch(firstError){
-    // Public published Google Sheets may sometimes block direct browser access. Fallback only for public feeds.
-    const fallback='https://api.allorigins.win/raw?url='+encodeURIComponent(withStamp);
-    try{return await attempt(fallback,8500)}catch(secondError){throw firstError}
+// Browser-native CSV fallback: removes the dependency on PapaParse CDN being ready
+// before the first sync, and handles quoted commas, escaped quotes and newlines.
+function parsePublishedCsv(csv){
+  if(window.Papa){
+    try{
+      const parsed=Papa.parse(csv,{header:true,skipEmptyLines:'greedy',transformHeader:x=>x.trim()});
+      if(parsed.data?.length)return parsed.data;
+    }catch(e){console.warn('PapaParse failed; using built-in CSV parser',e)}
+  }
+  const table=[];
+  let row=[],field='',quoted=false;
+  for(let i=0;i<csv.length;i++){
+    const c=csv[i];
+    if(c==='"'){
+      if(quoted&&csv[i+1]==='"'){field+='"';i++}else quoted=!quoted;
+    }else if(c===','&&!quoted){row.push(field);field=''}
+    else if((c==='\n'||c==='\r')&&!quoted){
+      if(c==='\r'&&csv[i+1]==='\n')i++;
+      row.push(field);field='';
+      if(row.some(v=>v.trim()))table.push(row);
+      row=[];
+    }else field+=c;
+  }
+  row.push(field);
+  if(row.some(v=>v.trim()))table.push(row);
+  if(!table.length)return [];
+  const headers=table.shift().map((h,i)=>i===0?h.replace(/^\uFEFF/,'').trim():h.trim());
+  return table.map(values=>{
+    const data={};
+    headers.forEach((h,i)=>{if(h)data[h]=values[i]??''});
+    return data;
+  });
+}
+function refreshLateChart(){
+  if(!globalFleetData.length)return;
+  renderChart(computeStats(getModelData()),currentSelectedModel);
+}
+const externalScriptLoads=new Map();
+function loadExternalScript(src,check){
+  if(check())return Promise.resolve(true);
+  if(externalScriptLoads.has(src))return externalScriptLoads.get(src);
+  const promise=new Promise(resolve=>{
+    const tag=document.createElement('script');tag.src=src;tag.async=true;
+    const timer=setTimeout(()=>{tag.remove();resolve(false)},12000);
+    tag.onload=()=>{clearTimeout(timer);resolve(!!check())};
+    tag.onerror=()=>{clearTimeout(timer);resolve(false)};
+    document.head.appendChild(tag);
+  });
+  externalScriptLoads.set(src,promise);
+  return promise;
+}
+async function ensureExcelLibrary(){
+  if(window.ExcelJS||window.XLSX)return;
+  notify('Loading Excel export library...');
+  const styled=await loadExternalScript('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',()=>!!window.ExcelJS);
+  if(!styled&&!window.XLSX)await loadExternalScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',()=>!!window.XLSX);
+}
+async function fetchCsv(url,options={}){
+  const force=!!options.force;
+  const maxWaitMs=options.maxWaitMs||SYNC_TIMEOUT_MS;
+  // Do not append a constantly changing timestamp for every initial page load.
+  // Manual refresh still bypasses intermediate caches for the latest published CSV.
+  const target=force?url+(url.includes('?')?'&':'?')+'t='+Date.now():url;
+  const directController=new AbortController(),proxyController=new AbortController();
+  const fetchOne=async(address,controller)=>{
+    const response=await fetch(address,{signal:controller.signal,cache:force?'no-store':'no-cache'});
+    if(!response.ok)throw new Error('CSV source returned HTTP '+response.status);
+    const csv=await response.text();
+    if(!csv.trim())throw new Error('Empty published CSV');
+    const rows=parsePublishedCsv(csv);
+    if(!rows.length)throw new Error('No CSV records');
+    if(typeof options.validate==='function'&&!options.validate(rows))throw new Error('Unexpected CSV columns returned by the source');
+    return rows;
+  };
+  // Hedged requests: direct Google Sheets first; only start the public proxy if
+  // Google is still slow after 1.5s or the direct request fails outright.
+  let proxyStarted=false,proxyTimer,proxyReject,hardTimeout;
+  let startProxy;
+  const proxyPromise=new Promise((resolve,reject)=>{
+    proxyReject=reject;
+    startProxy=()=>{
+      if(proxyStarted)return;
+      proxyStarted=true;
+      clearTimeout(proxyTimer);
+      const address='https://api.allorigins.win/raw?url='+encodeURIComponent(target);
+      fetchOne(address,proxyController).then(resolve,reject);
+    };
+  });
+  const directPromise=fetchOne(target,directController);
+  directPromise.catch(()=>startProxy());
+  proxyTimer=setTimeout(startProxy,PROXY_HEDGE_DELAY_MS);
+  const timeoutPromise=new Promise((_,reject)=>{
+    hardTimeout=setTimeout(()=>{
+      directController.abort();proxyController.abort();
+      reject(new Error('Google Sheets sync exceeded '+(maxWaitMs/1000).toFixed(1)+' seconds.'));
+    },maxWaitMs);
+  });
+  try{
+    return await Promise.race([Promise.any([directPromise,proxyPromise]),timeoutPromise]);
+  }finally{
+    clearTimeout(proxyTimer);clearTimeout(hardTimeout);
+    if(!proxyStarted)proxyReject(new Error('Proxy skipped; direct source succeeded.'));
+    directController.abort();proxyController.abort();
   }
 }
 async function fetchAmtData(){
-  try{const rows=await fetchCsv(amtUrlData);amtRowsGlobal=rows;cachedSet('smartfleet_amt_csv',rows);return true}
-  catch(e){const cached=cachedGet('smartfleet_amt_csv');if(Array.isArray(cached)){amtRowsGlobal=cached;return false}amtRowsGlobal=[];return false}
+  if(amtInFlight)return amtInFlight;
+  amtInFlight=(async()=>{
+    try{
+      const rows=await fetchCsv(amtUrlData,{validate:rows=>{
+        const keys=Object.keys(rows[0]||{});
+        return !!chooseColumn(keys,['Asset ID','Equipment ID','Serial Number'],[/asset.*id/i,/equipment/i,/serial/i,/^unit/i]);
+      }});
+      amtRowsGlobal=rows;deferCacheWrite('smartfleet_amt_csv',rows);
+      return true;
+    }catch(e){
+      const cached=cachedGet('smartfleet_amt_csv');
+      if(Array.isArray(cached)&&cached.length)amtRowsGlobal=cached;
+      return false;
+    }finally{amtInFlight=null}
+  })();
+  return amtInFlight;
 }
-async function fetchAllData(){
-  if(syncing)return;syncing=true;const btn=document.getElementById('sync-button');btn.disabled=true;
-  const old=cachedGet('smartfleet_main_csv');if(!rawRowsGlobal.length&&Array.isArray(old)&&old.length){rawRowsGlobal=old;processRawRows(old);dataMeta('Showing local cached data while checking published Google Sheets...')}
-  setSyncStatus('loading','Syncing...');
+async function fetchAllData(forceRefresh=true){
+  if(syncing)return;
+  syncing=true;
+  const started=performance.now(),btn=document.getElementById('sync-button');
+  btn.disabled=true;
+  const last=safeLocalGet('smartfleet_sync_at');
+  const cached=(!rawRowsGlobal.length)?cachedGet('smartfleet_main_csv'):null;
+  if(Array.isArray(cached)&&cached.length){
+    rawRowsGlobal=cached;
+    processRawRows(cached);
+    dataMeta(`Showing stored data while checking Google Sheets · ${cached.length.toLocaleString()} source rows`);
+  }
+  // Reloading again immediately should display the known recent version instead
+  // of starting another expensive Google Sheets sync. Manual Sync always fetches.
+  const lastAge=last?Date.now()-Date.parse(last):Infinity;
+  if(!forceRefresh&&rawRowsGlobal.length&&lastAge>=0&&lastAge<CACHE_REUSE_MS){
+    setSyncStatus('cache','✓ Recent cache');
+    dataMeta(`Last confirmed source sync: ${new Date(last).toLocaleString()} · Press Sync Data to check now.`);
+    btn.disabled=false;syncing=false;
+    return;
+  }
+  setSyncStatus('loading','Checking Sheets...');
+  if(rawRowsGlobal.length)await nextPaint();
   try{
-    const rows=await fetchCsv(mainUrlData);
-    rawRowsGlobal=rows;processRawRows(rows);cachedSet('smartfleet_main_csv',rows);
-    lastSuccessfulSync=new Date();try{localStorage.setItem('smartfleet_sync_at',lastSuccessfulSync.toISOString())}catch(e){}
-    setSyncStatus('ok','✓ Live data');dataMeta(`Last successful sync: ${lastSuccessfulSync.toLocaleString()} · ${rows.length.toLocaleString()} source rows · Google Sheets`);
+    const rows=await fetchCsv(mainUrlData,{force:forceRefresh,validate:rows=>{
+      const keys=Object.keys(rows[0]||{});
+      return !!chooseColumn(keys,['Asset ID','Unit ID','Equipment ID'],[/^asset.*id$/i,/^unit/i,/equipment.*id/i]);
+    }});
+    setSyncStatus('loading','Updating view...');
+    await nextPaint();
+    rawRowsGlobal=rows;
+    processRawRows(rows);
+    lastSuccessfulSync=new Date();
+    deferCacheWrite('smartfleet_main_csv',rows,lastSuccessfulSync.toISOString());
+    setSyncStatus('ok',`✓ Live · ${formatElapsed(started)}`);
+    dataMeta(`Last successful sync: ${lastSuccessfulSync.toLocaleString()} · ${rows.length.toLocaleString()} source rows · Google Sheets`);
   }catch(e){
-    if(rawRowsGlobal.length){setSyncStatus('cache','⚠ Cached data');const last=safeLocalGet('smartfleet_sync_at');dataMeta(`Offline / feed unavailable · Cached data${last?' from '+new Date(last).toLocaleString():''}. Source is NOT live.`);notify('Unable to reach Google Sheets. Showing cached data.')}else{setSyncStatus('error','✕ No data');dataMeta('Unable to load Google Sheets and no cached data is available');document.getElementById('matrix-body').innerHTML='<tr><td class="p-8 text-center" colspan="20">Connect to the internet and check the published Google Sheets CSV URL.</td></tr>';notify(e.message||'Data unavailable')}
+    if(rawRowsGlobal.length){
+      setSyncStatus('cache','⚠ Cached data');
+      dataMeta(`Google Sheets unavailable after ${formatElapsed(started)} · Stored data only${last?' (last live '+new Date(last).toLocaleString()+')':''}`);
+      notify('Google Sheets is slow or unavailable. Previously saved data is displayed.');
+    }else{
+      setSyncStatus('error','✕ Sync failed');
+      dataMeta(`Google Sheets could not be reached after ${formatElapsed(started)}; no cached data exists.`);
+      document.getElementById('matrix-body').innerHTML='<tr><td class="p-8 text-center" colspan="20">Unable to reach Google Sheets. Check the published CSV link and connection.</td></tr>';
+      notify(e.message||'Data unavailable');
+    }
   }finally{btn.disabled=false;syncing=false;}
-  // AMT data is a secondary source; do not let its availability block the main dashboard.
-  fetchAmtData();
+  // AMT history now loads on demand; it does not consume network during main sync.
 }
 function makeRowsForExport(assets){
   const rows=[];for(const asset of assets)for(const [name,c] of Object.entries(asset.components))rows.push([asset.assetId,asset.model,asset.serialNo,name,c.status,c.life,c.elements,c.action,c.sosDate,c.trend,c.workOrder,isWorkOrderDone(c.workOrder)?'Done':'',c.rawStatus]);
@@ -689,6 +862,7 @@ function makeRowsForExport(assets){
 const exportColumns=['Asset ID','Model','Serial Number','Component','Health Status','Component Life','Wear Elements','Recommended Action','SOS Sample Date','Trend','WO Number / Status','WO Completed','Raw Health Value'];
 async function exportWorkbook(rows,fileName,sheetName='Fleet Condition'){
   if(!rows.length){notify('There are no source records to export.');return}
+  await ensureExcelLibrary();
   const safeRows=rows.map(row=>row.map(v=>excelSafe(v)));
   // ExcelJS preserves cell fills, font colors, borders and filters in real .xlsx files.
   if(window.ExcelJS){
@@ -740,12 +914,12 @@ function initPwa(){
 }
 function initUi(){
   changeTheme(safeLocalGet('smartfleet_theme')||'slate');
-  document.getElementById('asset-search').addEventListener('input',e=>{currentSearch=e.target.value.trim();updateAllViews()});
+  document.getElementById('asset-search').addEventListener('input',e=>{currentSearch=e.target.value.trim();clearTimeout(searchInputTimer);searchInputTimer=setTimeout(updateAllViews,150)});
   document.getElementById('health-filter').addEventListener('change',e=>filterByStatus(e.target.value));
   document.getElementById('sort-filter').addEventListener('change',e=>{currentSort=e.target.value;updateAllViews()});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAmtModal();closeAssetModal();}});
   document.querySelectorAll('#asset-modal,#amt-modal').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal){if(modal.id==='amt-modal')closeAmtModal();else closeAssetModal()}}));
-  initPwa();fetchAllData();
+  initPwa();fetchAllData(false);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initUi);else initUi();
 </script>
