@@ -1,60 +1,27 @@
 {
   "id": "./index.html",
-  "name": "Fleet Health Condition Monitoring Dashboard",
-  "short_name": "Fleet Health",
-  "description": "Fleet condition monitoring, component health status, oil analysis and maintenance action tracking.",
-  "lang": "en",
+  "name": "SmartFleet Condition Monitoring",
+  "short_name": "SmartFleet",
+  "description": "Condition monitoring and maintenance intelligence dashboard",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": [
-    "standalone"
-  ],
+  "background_color": "#060c1c",
+  "theme_color": "#060c1c",
+  "lang": "en",
   "orientation": "any",
-  "background_color": "#020617",
-  "theme_color": "#020617",
-  "categories": [
-    "business",
-    "productivity"
-  ],
   "icons": [
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-maskable-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "./icons/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Fleet Dashboard",
-      "short_name": "Dashboard",
-      "description": "Open the fleet condition dashboard",
-      "url": "./index.html",
-      "icons": [
-        {
-          "src": "./icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
+      "purpose": "any maskable"
     }
   ]
 }
