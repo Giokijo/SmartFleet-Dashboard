@@ -61,7 +61,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 5.9 AMT Maintenance History Direct Column Integration Active</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 6.0 Done Tooltip Caution Rule Active</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -441,6 +441,13 @@
 
                 if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '' || rawStatus.toUpperCase() === 'WAITING RESULT') rawStatus = 'Normal';
 
+                let workOrderVal = workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-';
+
+                // --- ATURAN BARU: JIKA TOOL TIPS / WORK ORDER BERTULISKAN "Done", UBAH JADI CAUTION ---
+                if (workOrderVal.toLowerCase() === 'done' && rawStatus.toLowerCase() === 'normal') {
+                    rawStatus = 'Caution';
+                }
+
                 let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
                 let roundedLife = formatRoundedHours(rawMeter);
                 let cleanElements = parseWearElements(elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '');
@@ -450,7 +457,7 @@
                     status: rawStatus, life: roundedLife, elements: cleanElements, action: actionVal,
                     sosDate: dateKey && r[dateKey] ? r[dateKey].toString().trim() : '-',
                     trend: trendKey && r[trendKey] ? r[trendKey].toString().trim() : '-',
-                    workOrder: workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-',
+                    workOrder: workOrderVal,
                     isRealData: true
                 };
             });
@@ -784,8 +791,6 @@
                 let durationVal = keys.durationKey && r[keys.durationKey] ? r[keys.durationKey].toString().trim() : '';
                 let woVal = keys.woKey && r[keys.woKey] ? r[keys.woKey].toString().trim() : '-';
                 let jobVal = keys.jobCodeKey && r[keys.jobCodeKey] ? r[keys.jobCodeKey].toString().trim() : '-';
-                
-                // Ambil langsung nilai status dari file AMT
                 let rawStatus = keys.statusKey && r[keys.statusKey] ? r[keys.statusKey].toString().trim() : '-';
                 let statusUpper = rawStatus.toUpperCase();
 
