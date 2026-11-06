@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fleet Health Condition Monitoring Dashboard</title>
+    <title>SmartFleet · Condition Monitoring</title>
     <!-- Progressive Web App: desktop + mobile -->
     <meta name="theme-color" content="#020617">
     <meta name="application-name" content="Fleet Health">
@@ -22,39 +22,60 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS for Native Excel (.xlsx) Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
-        [data-theme="slate"] {
-            --bg-main: #020617; --bg-card: #0f172a; --border-color: #1e293b; --text-main: #f8fafc; --text-sub: #94a3b8; --sticky-col: #0f172a; --sticky-head: #020617;
-        }
-        [data-theme="light"] {
-            --bg-main: #f8fafc; --bg-card: #ffffff; --border-color: #e2e8f0; --text-main: #0f172a; --text-sub: #64748b; --sticky-col: #f1f5f9; --sticky-head: #e2e8f0;
-        }
-        [data-theme="navy"] {
-            --bg-main: #0a1128; --bg-card: #101f42; --border-color: #1c3166; --text-main: #e0e6ed; --text-sub: #8ba0c4; --sticky-col: #101f42; --sticky-head: #0a1128;
-        }
-        body { background-color: var(--bg-main); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
-        .theme-card { background-color: var(--bg-card); border-color: var(--border-color); }
-        .theme-text-sub { color: var(--text-sub); }
-        .badge-normal { background-color: #def7ec; color: #03543f; border: 1px solid #84e1bc; }
-        .badge-caution { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
-        .badge-critical { background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4; }
-        /* Style Gradasi & Tanda Centang untuk WO yang sudah Done */
-        .badge-done-gradasi {
-            background: linear-gradient(135deg, #fde8e8 0%, #fef08a 100%);
-            color: #78350f;
-            border: 2px solid #f59e0b;
-        }
-        .comp-cell { width: 185px; min-width: 185px; max-width: 185px; }
-        .table-container { max-height: 70vh; overflow-y: auto; overflow-x: auto; position: relative; }
-        thead th { position: sticky; top: 0; z-index: 20; background-color: var(--sticky-head) !important; box-shadow: inset 0 -1px 0 var(--border-color); }
-        .sticky-asset-col { position: sticky; left: 0; z-index: 10; background-color: var(--sticky-col) !important; box-shadow: inset -1px 0 0 var(--border-color); }
-        thead th.sticky-asset-col { position: sticky; top: 0; left: 0; z-index: 30; background-color: var(--sticky-head) !important; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        [hidden] { display: none !important; }
+    :root {color-scheme: dark; --accent:#38bdf8; --accent-2:#818cf8; --shadow:0 14px 34px rgba(0,0,0,.17)}
+    [data-theme="slate"] {--bg-main:#060c1c;--bg-card:rgba(15,23,42,.80);--border-color:rgba(148,163,184,.16);--text-main:#f4f7ff;--text-sub:#94a3b8;--sticky-col:#101c32;--sticky-head:#111e35;--input-bg:rgba(15,23,42,.75);--hover-bg:rgba(56,189,248,.075)}
+    [data-theme="light"] {color-scheme:light;--bg-main:#f2f5fb;--bg-card:rgba(255,255,255,.92);--border-color:#dce4f1;--text-main:#152338;--text-sub:#63748b;--sticky-col:#f8fafc;--sticky-head:#edf3fa;--input-bg:#fff;--hover-bg:#ecf5ff}
+    [data-theme="navy"] {--bg-main:#030d24;--bg-card:rgba(11,29,60,.88);--border-color:rgba(125,166,231,.19);--text-main:#eff6ff;--text-sub:#9aaed0;--sticky-col:#0c2042;--sticky-head:#0c2042;--input-bg:#0b2145;--hover-bg:rgba(86,166,255,.12)}
+    * {box-sizing:border-box}
+    html {scroll-behavior:smooth}
+    body {background:radial-gradient(ellipse at 0 0,rgba(14,165,233,.09),transparent 44%),radial-gradient(ellipse at 100% 0,rgba(129,140,248,.08),transparent 41%),var(--bg-main);color:var(--text-main);transition:background-color .2s,color .2s;min-width:320px}
+    .theme-card {background:var(--bg-card);border:1px solid var(--border-color);box-shadow:var(--shadow);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+    .theme-text-sub {color:var(--text-sub)}
+    .glass-button {border:1px solid rgba(125,170,225,.24);transition:background .15s ease,transform .15s ease,box-shadow .15s ease;box-shadow:inset 0 1px rgba(255,255,255,.1)}
+    .glass-button:hover {transform:translateY(-1px);box-shadow:inset 0 1px rgba(255,255,255,.17),0 8px 20px rgba(14,165,233,.12)}
+    .glass-button:active {transform:scale(.98)}
+    button:focus-visible, input:focus-visible, select:focus-visible {outline:2px solid #38bdf8;outline-offset:2px}
+    .badge-normal {background:#dcfce7;color:#166534;border:1px solid #86efac}
+    .badge-caution {background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+    .badge-critical {background:#ffe4e6;color:#9f1239;border:1px solid #fda4af}
+    .badge-no-data {background:#e2e8f0;color:#475569;border:1px dashed #94a3b8}
+    .comp-cell {width:196px;min-width:196px;max-width:196px}
+    .table-container {max-height:min(70vh,850px);overflow:auto;overscroll-behavior:contain;position:relative;scrollbar-color:#64748b transparent;scrollbar-width:thin}
+    thead th {position:sticky;top:0;z-index:20;background:var(--sticky-head)!important;box-shadow:inset 0 -1px 0 var(--border-color);color:var(--text-sub)}
+    .sticky-asset-col {position:sticky;left:0;z-index:10;background:var(--sticky-col)!important;box-shadow:inset -1px 0 0 var(--border-color)}
+    thead th.sticky-asset-col {top:0;left:0;z-index:30;background:var(--sticky-head)!important}
+    .matrix-row:hover td.sticky-asset-col {filter:brightness(1.08)}
+    .health-card {min-height:132px;border-radius:11px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:11px;line-height:1.35;position:relative}
+    .health-card .life-pill {font-size:9px;background:rgba(255,255,255,.85);color:#334155;padding:2px 5px;border-radius:5px;white-space:nowrap;max-width:95px;overflow:hidden;text-overflow:ellipsis}
+    .health-card .action-line {line-height:1.35;color:inherit;opacity:.88;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .health-card .mini-label {font-size:9px;opacity:.74}
+    .health-card .value-line {font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
+    .done-pill {background:linear-gradient(130deg,#fef08a,#fcd34d);color:#78350f;padding:2px 6px;border-radius:5px;font-size:9px;font-weight:800;display:inline-flex;align-items:center;gap:2px}
+    .summary-metric {background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;padding:13px 15px;min-height:88px;box-shadow:inset 0 1px rgba(255,255,255,.035)}
+    .summary-number {font-size:25px;line-height:1.2;letter-spacing:-.03em;font-weight:800;font-variant-numeric:tabular-nums}
+    .filter-control {background:var(--input-bg);border:1px solid var(--border-color);border-radius:11px;color:var(--text-main);font-size:12px;min-height:38px;padding:8px 12px}
+    .filter-control::placeholder {color:var(--text-sub)}
+    .filter-control option {background:var(--sticky-head);color:var(--text-main)}
+    .model-btn {border:1px solid var(--border-color);border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:pointer;min-height:61px;transition:background .17s,transform .17s;white-space:nowrap}
+    .model-btn:hover {background:var(--hover-bg);transform:translateY(-1px)}
+    .model-btn.selected {background:linear-gradient(115deg,#1763b8,#2563eb);color:#fff;border-color:#60a5fa;box-shadow:0 8px 22px rgba(37,99,235,.22)}
+    .small-component {border:1px solid var(--border-color);border-radius:10px;padding:9px 11px;background:rgba(100,116,139,.06);text-align:left;cursor:pointer;transition:background .15s}
+    .small-component:hover {background:var(--hover-bg)}
+    .small-component:focus-visible {outline:2px solid #38bdf8;outline-offset:2px}
+    #sync-status {white-space:nowrap}
+    #toast {position:fixed;right:16px;bottom:18px;z-index:90;max-width:min(440px,calc(100vw - 32px));padding:12px 16px;border-radius:12px;color:#fff;background:#18304e;border:1px solid #3b82f6;box-shadow:0 18px 46px rgba(0,0,0,.45);font-size:12px}
+    #toast[hidden] {display:none!important}
+    .no-scrollbar::-webkit-scrollbar {height:5px}
+    .no-scrollbar::-webkit-scrollbar-thumb {background:rgba(148,163,184,.3);border-radius:10px}
+    .muted-status {color:var(--text-sub)}
+    [hidden] {display:none!important}
+    @media (max-width:640px) {.table-container{max-height:66vh}.summary-metric{min-height:77px;padding:11px}.summary-number{font-size:21px}.comp-cell{width:184px;min-width:184px;max-width:184px}.health-card{padding:8px}}
+    @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
     </style>
 </head>
-<body class="min-h-screen font-sans p-3 md:p-6 flex flex-col justify-between">
+<body class="min-h-screen font-sans p-3 sm:p-5 lg:p-7 flex flex-col justify-between">
 
     <div>
         <!-- Header Section -->
@@ -67,7 +88,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 6.2 Gradation & Checkmark Done Feature Active</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.0 · Actionable SOS health & maintenance intelligence</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -79,12 +100,20 @@
                         <option value="navy" class="bg-blue-950 text-white">Navy</option>
                     </select>
                 </div>
-                <span id="sync-status" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
-                <button id="pwa-install-btn" type="button" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard as application">⬇ Install App</button>
-                <button onclick="fetchAllData(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync Data</button>
+                <span id="sync-status" role="status" aria-live="polite" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
+                <button id="pwa-install-btn" type="button" class="glass-button bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard as application">⬇ Install App</button>
+                <button onclick="fetchAllData(true)" id="sync-button" class="glass-button bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync Data</button>
             </div>
         </header>
 
+        <div id="data-meta" class="-mt-3 mb-5 px-1 text-[11px] theme-text-sub">Data source: Google Sheets · Awaiting first sync</div>
+        <!-- Fleet KPI overview; data is calculated from reporting records, not synthetic placeholders -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" aria-label="Fleet condition key indicators">
+            <div class="summary-metric"><div class="theme-text-sub text-[10px] uppercase font-semibold tracking-wide">Equipment monitored</div><div class="summary-number mt-1" id="metric-units">—</div><div class="text-[10px] theme-text-sub" id="metric-units-note">All available equipment</div></div>
+            <div class="summary-metric"><div class="text-rose-400 text-[10px] uppercase font-semibold tracking-wide">Critical components</div><div class="summary-number mt-1 text-rose-400" id="metric-critical">—</div><div class="text-[10px] theme-text-sub" id="metric-critical-units">0 affected units</div></div>
+            <div class="summary-metric"><div class="text-amber-400 text-[10px] uppercase font-semibold tracking-wide">Caution components</div><div class="summary-number mt-1 text-amber-400" id="metric-caution">—</div><div class="text-[10px] theme-text-sub" id="metric-caution-units">0 affected units</div></div>
+            <div class="summary-metric"><div class="theme-text-sub text-[10px] uppercase font-semibold tracking-wide">Awaiting / No Result</div><div class="summary-number mt-1" id="metric-missing">—</div><div class="text-[10px] theme-text-sub">Not counted as Normal</div></div>
+        </section>
         <!-- Analytics Overview Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
             <div class="theme-card p-4 rounded-2xl border shadow-xl flex flex-col items-center justify-between">
@@ -95,10 +124,11 @@
                 <div class="relative w-full max-w-[180px] h-[150px] flex items-center justify-center cursor-pointer" title="Click chart segments to filter component status">
                     <canvas id="healthChart"></canvas>
                 </div>
-                <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold w-full mt-3">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center text-[10px] font-bold w-full mt-3">
                     <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-1 rounded-lg">Normal: <span id="stat-normal">0%</span></div>
                     <div class="bg-amber-500/10 border border-amber-500/30 text-amber-400 p-1 rounded-lg">Caution: <span id="stat-caution">0%</span></div>
                     <div class="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-1 rounded-lg">Critical: <span id="stat-critical">0%</span></div>
+                    <div class="bg-slate-500/10 border border-slate-500/30 theme-text-sub p-1 rounded-lg">No Data: <span id="stat-no-data">0%</span></div>
                 </div>
             </div>
 
@@ -112,7 +142,7 @@
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-800/40 flex justify-between items-center text-xs">
                     <div id="unit-counter" class="theme-text-sub font-medium">Loading records...</div>
-                    <span class="text-emerald-400 font-semibold">💡 Click chart colors to filter Normal / Caution / Critical</span>
+                    <span class="text-emerald-400 font-semibold">💡 Click chart colors to filter by health severity</span>
                 </div>
             </div>
         </div>
@@ -125,11 +155,20 @@
             <div id="icon-filter-bar" class="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar"></div>
         </div>
 
+        <section class="theme-card rounded-2xl p-3 sm:p-4 mb-4 flex flex-wrap items-center gap-2.5" aria-label="Fleet matrix controls">
+            <div class="flex-1 min-w-[200px]"><label for="asset-search" class="sr-only">Search assets or equipment</label><input id="asset-search" class="filter-control w-full" placeholder="⌕ Search asset ID, model, S/N or components..." autocomplete="off" /></div>
+            <label for="health-filter" class="sr-only">Filter component health</label>
+            <select id="health-filter" class="filter-control min-w-[150px]" title="Filter by component health"><option value="ALL">All statuses</option><option value="Critical">Critical</option><option value="Caution">Caution</option><option value="Normal">Normal</option><option value="No Data">No Data</option></select>
+            <label for="sort-filter" class="sr-only">Sort equipment</label>
+            <select id="sort-filter" class="filter-control min-w-[150px]" title="Sort equipment"><option value="asset">Asset ID (A–Z)</option><option value="risk">Highest risk first</option><option value="latest">Latest sample first</option></select>
+            <button id="clear-all-btn" type="button" class="glass-button filter-control font-semibold" onclick="resetAllFilters()">Reset</button>
+            <button id="export-fleet-btn" type="button" class="glass-button bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl" onclick="exportFleetExcel()">↓ Export Fleet Excel</button>
+        </section>
         <!-- Main Matrix Table Container -->
         <div class="theme-card rounded-2xl border overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
                 <h3 id="matrix-title" class="text-xs font-bold uppercase tracking-wider">Fleet Component Matrix (All Status)</h3>
-                <span class="text-[10px] theme-text-sub">Tap Asset ID for Details & Excel Export</span>
+                <span class="text-[10px] theme-text-sub">Click an Asset ID for condition details</span>
             </div>
             <div class="table-container">
                 <table class="w-full text-left text-xs border-collapse">
@@ -165,7 +204,7 @@
                             <span id="modal-serial">-</span> <span class="text-[9px] bg-blue-900/60 px-1 py-0.2 rounded border border-blue-700">🛠️ AMT History</span>
                         </button>
                     </div>
-                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Current SMU / Life</span><span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span></div>
+                    <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Reference Component Life</span><span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span></div>
                 </div>
                 <h3 class="text-[11px] font-bold uppercase tracking-wider mb-2 text-slate-300">Component Health & Maintenance Details</h3>
                 <div id="modal-components-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
@@ -185,6 +224,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button onclick="exportAmtExcel()" class="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-xs px-3 py-2 rounded-xl">↓ Export AMT</button>
                     <button onclick="closeAmtModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">✕ Close</button>
                 </div>
             </div>
@@ -223,32 +263,75 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[8px] font-mono text-slate-500 mt-0.5">neemba<span style="font-size: 13px;" title="Eye of Providence">👁️</span>2026</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet · Condition monitoring · Values reflect the source feed</p>
     </footer>
 
+    <div id="toast" role="alert" aria-live="assertive" hidden></div>
     <script>
-        const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv&t=" + new Date().getTime();
-        const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmjG03oV3wiaLMa-uLWYwfLbPEdZRIcwYwWvWGTLvj_aZg6-f-seh-OQ/pub?output=csv&t=" + new Date().getTime();
+"use strict";
+const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv";
+const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmjG03oV3wiaLMa-uLWYwfLbPEdZRIcwYwWvWGTLvj_aZg6-f-seh-OQ/pub?output=csv";
+const preferredComponentOrder = ["ENGINE","TORQUE CONVERTER","TRANSMISSION","DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT","FINAL DRIVE FRONT RIGHT","WHEEL BEARINGS FRONT LEFT","WHEEL BEARINGS FRONT RIGHT","DIFFERENTIAL REAR","FINAL DRIVE REAR LEFT","FINAL DRIVE REAR RIGHT","TANDEM LEFT","TANDEM RIGHT","PUMP DRIVE","SWING DRIVE LEFT","SWING DRIVE RIGHT","STEERING SYSTEM","HYDRAULIC SYSTEM","RADIATOR","VIMS","PRODUCT LINK"];
+let rawRowsGlobal = [], globalFleetData = [], amtRowsGlobal = [];
+let allUniqueModels = new Set();
+let healthChartInstance = null;
+let activeModalAsset = null, activeAmtRecords = [], activeAmtKeys = null, lastSuccessfulSync = null;
+let currentSelectedModel = 'ALL', currentStatusFilter = 'ALL', currentSearch = '', currentSort = 'asset';
+let pendingInstallPrompt = null, syncing = false;
 
-        let rawRowsGlobal = [];
-        let globalFleetData = [];
-        let amtRowsGlobal = [];
-        let allUniqueComponents = new Set();
-        let allUniqueModels = new Set();
-        let healthChartInstance = null;
-        let activeModalAsset = null;
-        let currentSelectedModel = 'ALL';
-        let currentStatusFilter = 'ALL';
-        let activeAmtRecords = [];
-
-        const preferredComponentOrder = [
-            "ENGINE", "TORQUE CONVERTER", "TRANSMISSION", "DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT", "FINAL DRIVE FRONT RIGHT",
-            "WHEEL BEARINGS FRONT LEFT", "WHEEL BEARINGS FRONT RIGHT", "DIFFERENTIAL REAR",
-            "FINAL DRIVE REAR LEFT", "FINAL DRIVE REAR RIGHT", "TANDEM LEFT", "TANDEM RIGHT",
-            "PUMP DRIVE", "SWING DRIVE LEFT", "SWING DRIVE RIGHT", "STEERING SYSTEM",
-            "HYDRAULIC SYSTEM", "RADIATOR", "VIMS", "PRODUCT LINK"
-        ];
-
+function safeText(value) { return String(value ?? '').trim(); }
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function normalizeKey(s) { return safeText(s).toLowerCase().replace(/[^a-z0-9]/g,''); }
+function chooseColumn(keys, exacts, patterns=[]) {
+  const byNorm = new Map(keys.map(k => [normalizeKey(k), k]));
+  for (const name of exacts) if (byNorm.has(normalizeKey(name))) return byNorm.get(normalizeKey(name));
+  for (const pat of patterns) { const key = keys.find(k => pat.test(k)); if (key) return key; }
+  return null;
+}
+function safeLocalGet(key) { try {return localStorage.getItem(key)} catch(e) {return null} }
+function cachedSet(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); return true; } catch(e) { return false; } }
+function cachedGet(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) { return null; } }
+function notify(message) { const el = document.getElementById('toast'); el.textContent = message; el.hidden=false; clearTimeout(notify.timer); notify.timer=setTimeout(()=>el.hidden=true,5200); }
+function normalizeStatus(raw) {
+  const x = safeText(raw).toUpperCase();
+  if (!x || ['N/A','NA','-','#N/A','NO DATA','WAITING RESULT','PENDING','NOT AVAILABLE','UNKNOWN'].includes(x)) return 'No Data';
+  if (/CRITICAL|SEVERE|ABNORMAL|URGENT|RED|^C$/.test(x)) return 'Critical';
+  if (/CAUTION|MONITOR|WARNING|WATCH|YELLOW|^B$/.test(x)) return 'Caution';
+  if (/NORMAL|GOOD|GREEN|SATISFACTORY|^A$/.test(x)) return 'Normal';
+  return 'No Data';
+}
+function numericScore(status) { return ({'Critical':3,'Caution':2,'No Data':1,'Normal':0})[status] ?? 1; }
+function excelSafe(text) {const s = safeText(text); return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;}
+function parseDateMaybe(val) {
+  const v = safeText(val); if (!v || v === '-') return 0;
+  const iso = v.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return Date.UTC(+iso[1],+iso[2]-1,+iso[3]);
+  const slash = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (slash) {const a=+slash[1],b=+slash[2];return Date.UTC(+slash[3],(a>12?b:a<=12&&b>12?a:b)-1,(a>12?a:a<=12&&b>12?b:a));}
+  const d = Date.parse(v);return Number.isFinite(d) ? d : 0;
+}
+function cleanWearElements(raw) {
+  const valid = new Set(['CU','FE','CR','PB','SN','SI','AL','MO','NI','AG','B','NA','K','V','ZN']);
+  const parts = safeText(raw).split(/[;,]/).map(x=>x.trim().toUpperCase()).filter(x=>valid.has(x));
+  return [...new Set(parts)].join(', ') || '-';
+}
+function formatRoundedHours(val) {
+  const s=safeText(val);if(!s||s==='-'||s==='#N/A')return '-';
+  const number=Number(s.replace(/\s/g,'').replace(/,/g,'.'));
+  return Number.isFinite(number) ? `${Math.round(number).toLocaleString('en-US')} hrs` : s;
+}
+function trendDots(trendStr) {
+  const raw=safeText(trendStr).toUpperCase();if(!raw||raw==='-'||raw==='#N/A')return '<span class="mini-label">—</span>';
+  const letters=raw.replace(/[^ABC]/g,'').slice(-12);if(!letters)return `<span class="mini-label">${escapeHtml(raw.slice(0,16))}</span>`;
+  return `<span class="inline-flex gap-[3px] items-center" aria-label="Trend ${escapeHtml(letters)}">${[...letters].map(c=>`<span title="${c==='A'?'Normal':c==='B'?'Caution':'Critical'}" class="inline-block w-[7px] h-[7px] rounded-full" style="background:${c==='A'?'#10b981':c==='B'?'#f59e0b':'#ef4444'}"></span>`).join('')}</span>`;
+}
+function changeTheme(themeName) {
+  if (!['slate','light','navy'].includes(themeName)) themeName='slate';
+  document.documentElement.setAttribute('data-theme',themeName);
+  document.getElementById('theme-selector').value=themeName;
+  try {localStorage.setItem('smartfleet_theme',themeName)}catch(e){}
+  if(healthChartInstance)healthChartInstance.update();
+}
         function getModelIconSvg(modelName) {
             let m = (modelName || '').toUpperCase();
             if (m.includes('777') || m.includes('773')) {
@@ -283,631 +366,333 @@
             };
         }
 
-        function renderTrendDots(trendStr) {
-            if (!trendStr || trendStr === '-' || trendStr.trim() === '') return '-';
-            let clean = trendStr.toString().toUpperCase().trim();
-            let html = '<div class="flex items-center gap-1">';
-            for (let i = 0; i < clean.length; i++) {
-                let char = clean[i];
-                let colorClass = 'bg-slate-500';
-                if (char === 'A') colorClass = 'bg-emerald-500 shadow-sm shadow-emerald-500/50';
-                else if (char === 'B') colorClass = 'bg-amber-400 shadow-sm shadow-amber-400/50';
-                else if (char === 'C') colorClass = 'bg-rose-500 shadow-sm shadow-rose-500/50';
 
-                html += `<span class="w-2 h-2 rounded-full inline-block ${colorClass}" title="Trend: ${char}"></span>`;
-            }
-            html += '</div>';
-            return html;
-        }
 
-        function changeTheme(themeName) {
-            document.documentElement.setAttribute('data-theme', themeName);
-            localStorage.setItem('smartfleet_theme', themeName);
-            if (healthChartInstance) healthChartInstance.update();
-        }
-
-        const savedTheme = localStorage.getItem('smartfleet_theme') || 'slate';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        document.getElementById('theme-selector').value = savedTheme;
-
-        async function fetchWithTimeout(url, timeoutMs = 5000) {
-            const attempt = async (targetUrl, limitMs) => {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), limitMs);
-                try {
-                    const res = await fetch(targetUrl, { signal: controller.signal, cache: 'no-store' });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const text = await res.text();
-                    if (!text || !text.trim()) throw new Error('Empty CSV response');
-                    const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
-                    if (!rows.length) throw new Error('No rows returned');
-                    return rows;
-                } finally {
-                    clearTimeout(timer);
-                }
-            };
-            try {
-                return await attempt(url, timeoutMs);
-            } catch (directError) {
-                const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                return await attempt(fallbackUrl, 5000);
-            }
-        }
-
-        async function fetchAllData(forceRefresh = true) {
-            const statusEl = document.getElementById('sync-status');
-            if (!rawRowsGlobal.length) {
-                const previous = localStorage.getItem('smartfleet_main_csv');
-                if (previous) {
-                    try {
-                        rawRowsGlobal = JSON.parse(previous);
-                        processRawRows(rawRowsGlobal);
-                    } catch (_) {}
-                }
-            }
-            statusEl.innerText = 'Syncing...';
-            statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800 animate-pulse';
-
-            try {
-                const mainRes = await fetchWithTimeout(mainUrlData.replace(/&t=\d+$/, '') + '&t=' + Date.now());
-                if (mainRes && mainRes.length > 0) {
-                    rawRowsGlobal = mainRes;
-                    processRawRows(mainRes);
-                    localStorage.setItem('smartfleet_main_csv', JSON.stringify(mainRes));
-                }
-                
-                fetchAmtData();
-
-                statusEl.innerText = '✓ Synced';
-                statusEl.className = 'text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800';
-            } catch (err) {
-                const cachedMain = localStorage.getItem('smartfleet_main_csv');
-                if (cachedMain) {
-                    try {
-                        rawRowsGlobal = JSON.parse(cachedMain);
-                        processRawRows(rawRowsGlobal);
-                        statusEl.innerText = '✓ Cached data';
-                        statusEl.className = 'text-xs text-amber-400 bg-amber-950/80 px-3 py-1.5 rounded-lg border border-amber-800';
-                    } catch (_) {
-                        statusEl.innerText = 'Offline';
-                        statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
-                    }
-                } else {
-                    statusEl.innerText = 'Offline · No cached data';
-                    statusEl.className = 'text-xs text-rose-400 bg-rose-950/80 px-3 py-1.5 rounded-lg border border-rose-800';
-                    document.getElementById('status-cell').textContent = 'Connect to the internet to load and cache fleet data at least once.';
-                }
-            }
-        }
-
-        async function fetchAmtData() {
-            try {
-                const amtRes = await fetchWithTimeout(amtUrlData.replace(/&t=\d+$/, '') + '&t=' + Date.now());
-                if (amtRes && amtRes.length > 0) {
-                    amtRowsGlobal = amtRes;
-                    localStorage.setItem('smartfleet_amt_csv', JSON.stringify(amtRes));
-                }
-            } catch (e) {
-                const cachedAmt = localStorage.getItem('smartfleet_amt_csv');
-                if (cachedAmt) {
-                    try { amtRowsGlobal = JSON.parse(cachedAmt); } catch (_) {}
-                }
-            }
-        }
-
-        function parseWearElements(rawStr) {
-            if (!rawStr || rawStr.trim() === '' || rawStr.includes('#N/A')) return '-';
-            const validElements = ['CU', 'FE', 'CR', 'PB', 'SN', 'SI', 'AL', 'MO', 'NI', 'AG', 'B', 'NA', 'K', 'V', 'ZN'];
-            let parts = rawStr.split(',').map(s => s.trim().toUpperCase()).filter(s => validElements.includes(s));
-            return parts.length > 0 ? parts.join(', ') : '-';
-        }
-
-        function formatRoundedHours(valStr) {
-            if (!valStr || valStr === '-' || valStr === '#N/A') return '-';
-            let cleanStr = valStr.toString().replace(/,/g, '.');
-            let num = parseFloat(cleanStr);
-            return isNaN(num) ? valStr : Math.round(num).toString() + ' hrs';
-        }
-
-        function processRawRows(rows) {
-            if (!rows || rows.length === 0) return;
-            const keys = Object.keys(rows[0]);
-            const assetKey = keys.find(k => k.trim().toLowerCase() === 'asset id') || keys.find(k => /unit|asset|equipment|id/i.test(k)) || keys[0];
-            const serialKey = keys.find(k => /serial.*no|serial|sn|s\/n/i.test(k));
-            const modelKey = keys.find(k => k.trim().toLowerCase() === 'model') || keys.find(k => /model|type|family|machine/i.test(k));
-            const componentKey = keys.find(k => k.trim().toLowerCase() === 'component') || keys.find(k => /component|komponen|assembly|system|part/i.test(k));
-            const statusKey = keys.find(k => k.trim().toLowerCase() === 'oil summary health') || keys.find(k => /health|summary|status|rating|kondisi/i.test(k));
-            const meterKey = keys.find(k => k.trim().toLowerCase() === 'comp life') || keys.find(k => /comp life|smu|meter|hours|jam|life/i.test(k));
-            const elementOverKey = keys.find(k => k.trim().toLowerCase() === 'element over') || keys.find(k => /element.*over|over.*element/i.test(k));
-            const actionKey = keys.find(k => k.trim().toLowerCase() === 'action') || keys.find(k => /action|rekomendasi|recommendation|eval/i.test(k));
-            const dateKey = keys.find(k => /sos4\.newestsmu2\.sos date/i.test(k)) || keys.find(k => /sos date|newest.*date|sample.*date|date/i.test(k));
-            const trendKey = keys.find(k => k.trim().toLowerCase() === 'tren') || keys.find(k => /tren|trend/i.test(k));
-            const workOrderKey = keys.find(k => /tool.*tips|tooltip|work.*order|wo/i.test(k));
-
-            let unitMap = {};
-            allUniqueComponents.clear();
-            allUniqueModels.clear();
-
-            rows.forEach(r => {
-                let unit = r[assetKey] || '';
-                let comp = componentKey ? (r[componentKey] || '') : 'GENERAL';
-                if (!unit) return;
-                unit = unit.toString().trim();
-                comp = comp.toString().trim().toUpperCase();
-                let modelVal = modelKey && r[modelKey] ? r[modelKey].toString().trim() : 'ALL MODELS';
-                let rawStatus = statusKey && r[statusKey] ? r[statusKey].toString().trim() : '';
-
-                if (modelVal) allUniqueModels.add(modelVal);
-                if (rawStatus && rawStatus.toUpperCase() !== 'N/A' && rawStatus !== '' && rawStatus.toUpperCase() !== 'WAITING RESULT') {
-                    allUniqueComponents.add(comp);
-                }
-
-                let serialVal = serialKey && r[serialKey] ? r[serialKey].toString().trim() : '-';
-                if (!unitMap[unit]) unitMap[unit] = { assetId: unit, model: modelVal, serialNo: serialVal, components: {} };
-
-                if (!rawStatus || rawStatus.toUpperCase() === 'N/A' || rawStatus === '' || rawStatus.toUpperCase() === 'WAITING RESULT') rawStatus = 'Normal';
-
-                let workOrderVal = workOrderKey && r[workOrderKey] ? r[workOrderKey].toString().trim() : '-';
-
-                let rawMeter = meterKey && r[meterKey] ? r[meterKey].toString().trim() : '-';
-                let roundedLife = formatRoundedHours(rawMeter);
-                let cleanElements = parseWearElements(elementOverKey && r[elementOverKey] ? r[elementOverKey].toString().trim() : '');
-                let actionVal = actionKey && r[actionKey] ? r[actionKey].toString().trim() : (cleanElements !== '-' ? `Monitor wear elements [${cleanElements}].` : '-');
-
-                unitMap[unit].components[comp] = {
-                    status: rawStatus, life: roundedLife, elements: cleanElements, action: actionVal,
-                    sosDate: dateKey && r[dateKey] ? r[dateKey].toString().trim() : '-',
-                    trend: trendKey && r[trendKey] ? r[trendKey].toString().trim() : '-',
-                    workOrder: workOrderVal,
-                    isRealData: true
-                };
-            });
-
-            globalFleetData = Object.values(unitMap).sort((a, b) => a.assetId.localeCompare(b.assetId, undefined, { numeric: true, sensitivity: 'base' }));
-            buildIconFilterBar();
-            filterTable();
-        }
-
-        function buildIconFilterBar() {
-            const bar = document.getElementById('icon-filter-bar');
-            let models = Array.from(allUniqueModels).sort();
-
-            let html = `
-                <button onclick="selectModel('ALL')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-bold transition shadow-md cursor-pointer ${currentSelectedModel === 'ALL' ? 'bg-blue-600 border-blue-500 text-white' : 'theme-card hover:bg-slate-800/50 theme-text-sub'}">
-                    <div class="w-10 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1 v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                    </div>
-                    <div class="text-left flex flex-col">
-                        <span class="text-sm tracking-wider">All Fleet</span>
-                        <span class="text-[9px] opacity-75">${globalFleetData.length} Units</span>
-                    </div>
-                </button>
-            `;
-
-            models.forEach(m => {
-                let meta = getModelIconSvg(m);
-                let count = globalFleetData.filter(d => d.model === m).length;
-                let isActive = currentSelectedModel === m;
-
-                html += `
-                    <button onclick="selectModel('${m}')" class="flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-bold transition shadow-md cursor-pointer ${isActive ? 'bg-blue-600 border-blue-500 text-white' : 'theme-card hover:bg-slate-800/50 theme-text-sub'}">
-                        <div class="w-10 h-8 rounded-lg bg-slate-900/80 border border-slate-700/60 flex items-center justify-center p-1">
-                            ${meta.svg}
-                        </div>
-                        <div class="text-left flex flex-col">
-                            <span class="text-sm tracking-wider">${m}</span>
-                            <span class="text-[9px] opacity-75">${meta.subtitle} (${count})</span>
-                        </div>
-                    </button>
-                `;
-            });
-
-            bar.innerHTML = html;
-        }
-
-        function selectModel(modelName) {
-            currentSelectedModel = modelName;
-            buildIconFilterBar();
-            filterTable();
-        }
-
-        function filterTable() {
-            let filtered = currentSelectedModel === 'ALL' ? globalFleetData : globalFleetData.filter(d => d.model === currentSelectedModel);
-            renderTable(filtered, currentSelectedModel, currentStatusFilter);
-        }
-
-        function resetStatusFilter() {
-            currentStatusFilter = 'ALL';
-            document.getElementById('matrix-title').innerText = "Fleet Component Matrix (All Status)";
-            document.getElementById('reset-filter-btn').classList.add('hidden');
-            filterTable();
-        }
-
-        function getSortedComponents(activeModel = 'ALL') {
-            let modelComponents = new Set();
-            globalFleetData.forEach(row => {
-                if (activeModel === 'ALL' || row.model === activeModel) {
-                    Object.keys(row.components).forEach(c => { if (row.components[c].isRealData) modelComponents.add(c); });
-                }
-            });
-            if (modelComponents.size === 0) return preferredComponentOrder;
-            return Array.from(modelComponents).sort((a, b) => {
-                let idxA = preferredComponentOrder.indexOf(a), idxB = preferredComponentOrder.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
-        }
-
-        function renderChart(n, c, cr, modelLabel) {
-            const ctx = document.getElementById('healthChart').getContext('2d');
-            const total = n + c + cr;
-            document.getElementById('stat-normal').innerText = total > 0 ? ((n/total)*100).toFixed(1)+'%' : '0%';
-            document.getElementById('stat-caution').innerText = total > 0 ? ((c/total)*100).toFixed(1)+'%' : '0%';
-            document.getElementById('stat-critical').innerText = total > 0 ? ((cr/total)*100).toFixed(1)+'%' : '0%';
-            document.getElementById('chart-model-label').innerText = modelLabel.toUpperCase();
-
-            if (healthChartInstance) healthChartInstance.destroy();
-            healthChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Normal', 'Caution', 'Critical'],
-                    datasets: [{
-                        data: [n, c, cr],
-                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-                        borderWidth: 2,
-                        borderColor: 'transparent'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    cutout: '70%',
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            if (index === 0) filterByStatus('Normal');
-                            else if (index === 1) filterByStatus('Caution');
-                            else if (index === 2) filterByStatus('Critical');
-                        }
-                    }
-                }
-            });
-        }
-
-        function filterByStatus(statusName) {
-            currentStatusFilter = statusName;
-            document.getElementById('matrix-title').innerText = `Fleet Component Matrix (Filtered: ${statusName} Only)`;
-            document.getElementById('reset-filter-btn').classList.remove('hidden');
-            filterTable();
-        }
-
-        function renderTable(data, selectedModel = 'ALL', statusFilter = 'ALL') {
-            let compList = getSortedComponents(selectedModel);
-            const head = document.getElementById('matrix-head');
-            let headHTML = `<tr><th class="p-3 text-blue-400 font-extrabold text-xs border-r border-slate-800 w-36 min-w-[144px] sticky-asset-col">➔ Asset ID</th>`;
-            compList.forEach(c => { headHTML += `<th class="p-3 border-r border-slate-800 comp-cell text-center">${c}</th>`; });
-            head.innerHTML = headHTML + `</tr>`;
-
-            const body = document.getElementById('matrix-body');
-            body.innerHTML = '';
-            let sosSum = {}; compList.forEach(c => sosSum[c] = 0);
-            let nTot = 0, cTot = 0, crTot = 0;
-
-            data.forEach(row => {
-                let fallbackLife = '-';
-                for (let k in row.components) { if (row.components[k].life !== '-') { fallbackLife = row.components[k].life; break; } }
-
-                let hasMatchingComponent = false;
-                compList.forEach(comp => {
-                    let cd = row.components[comp];
-                    if (cd && cd.isRealData) {
-                        let stLower = cd.status.toLowerCase();
-                        if (stLower.includes('critical')) { crTot++; sosSum[comp]++; }
-                        else if (stLower.includes('caution') || stLower.includes('monitor')) { cTot++; sosSum[comp]++; }
-                        else if (stLower.includes('normal')) { nTot++; }
-
-                        if (statusFilter === 'ALL') hasMatchingComponent = true;
-                        else if (statusFilter === 'Normal' && stLower.includes('normal')) hasMatchingComponent = true;
-                        else if (statusFilter === 'Caution' && (stLower.includes('caution') || stLower.includes('monitor'))) hasMatchingComponent = true;
-                        else if (statusFilter === 'Critical' && stLower.includes('critical')) hasMatchingComponent = true;
-                    }
-                });
-
-                if (statusFilter !== 'ALL' && !hasMatchingComponent) return;
-
-                let tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/20 transition border-b border-slate-800/40";
-                let rowHTML = `
-                    <td class="p-3 font-extrabold text-sm tracking-wide border-r border-blue-900/40 w-36 min-w-[144px] sticky-asset-col">
-                        <button onclick="openAssetDetail('${row.assetId}')" class="text-blue-400 hover:text-blue-300 underline font-extrabold text-left transition flex flex-col cursor-pointer">
-                            <span>${row.assetId} 🔍</span>
-                            <span class="text-[10px] font-normal text-slate-400">${row.model}</span>
-                        </button>
-                    </td>
-                `;
-
-                compList.forEach(comp => {
-                    let cd = row.components[comp];
-                    if (!cd || !cd.isRealData) cd = { status: 'Normal', life: fallbackLife, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                    else if (cd.life === '-' && fallbackLife !== '-') cd.life = fallbackLife;
-
-                    let stLower = cd.status.toLowerCase();
-                    let isDone = cd.workOrder.toLowerCase() === 'done';
-
-                    // --- ATURAN BADGE: JIKA DONE, BERIKAN EFEK GRADASI & TANDA CENTANG (✔️) ---
-                    let badgeClass = '';
-                    let statusLabelText = cd.status;
-
-                    if (isDone) {
-                        badgeClass = 'badge-done-gradasi';
-                        statusLabelText = `${cd.status} ✔️ Done`;
-                    } else if (stLower.includes('critical')) {
-                        badgeClass = 'badge-critical';
-                    } else if (stLower.includes('caution') || stLower.includes('monitor')) {
-                        badgeClass = 'badge-caution';
-                    } else {
-                        badgeClass = 'badge-normal';
-                    }
-
-                    let elementDisplay = (cd.elements && cd.elements !== '-') ? `<div class="mt-1 bg-rose-950/60 border border-rose-800/80 rounded px-1.5 py-0.5 text-[9px]"><span class="font-extrabold text-rose-300 block">⚠️ ${cd.elements}</span></div>` : '';
-                    let actionDisplay = (cd.action && cd.action !== '-') ? `<div class="mt-1 text-[8px] text-slate-800 font-medium leading-tight line-clamp-2" title="${cd.action.replace(/"/g, '&quot;')}">💡 ${cd.action}</div>` : '';
-                    let trendDotsDisplay = renderTrendDots(cd.trend);
-
-                    let isDimmed = false;
-                    if (statusFilter !== 'ALL') {
-                        if (statusFilter === 'Normal' && !stLower.includes('normal')) isDimmed = true;
-                        if (statusFilter === 'Caution' && !stLower.includes('caution') && !stLower.includes('monitor')) isDimmed = true;
-                        if (statusFilter === 'Critical' && !stLower.includes('critical')) isDimmed = true;
-                    }
-
-                    let opacityStyle = isDimmed ? 'opacity-25 filter grayscale' : 'opacity-100';
-
-                    rowHTML += `
-                        <td class="p-2 border-r border-slate-800/60 comp-cell align-top ${opacityStyle} transition">
-                            <div class="px-2 py-2 rounded-lg text-[10px] ${badgeClass} font-semibold flex flex-col justify-between shadow-sm min-h-[115px]">
-                                <div>
-                                    <div class="flex justify-between items-center"><span class="font-bold">${statusLabelText}</span><span class="text-[9px] font-extrabold text-amber-900 bg-amber-200/90 px-1 rounded">${cd.life}</span></div>
-                                    ${elementDisplay}
-                                    ${actionDisplay}
-                                </div>
-                                <div class="mt-1.5 pt-1 border-t border-black/10 text-[8px] flex flex-col gap-0.5">
-                                    <div class="flex justify-between items-center"><span class="opacity-75">📅 Date:</span> <span class="font-mono font-bold">${cd.sosDate}</span></div>
-                                    <div class="flex justify-between items-center"><span class="opacity-75">📈 Trend:</span> ${trendDotsDisplay}</div>
-                                    <div class="flex justify-between items-center"><span class="opacity-75">🛠️ WO:</span> <span class="font-mono font-bold truncate max-w-[90px]">${cd.workOrder}</span></div>
-                                </div>
-                            </div>
-                        </td>
-                    `;
-                });
-                tr.innerHTML = rowHTML;
-                body.appendChild(tr);
-            });
-
-            document.getElementById('unit-counter').innerText = `Showing filtered records`;
-            let bar = document.getElementById('sos-sum-bar');
-            bar.className = `grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 text-center text-xs`;
-            let barH = '';
-            compList.forEach(c => { barH += `<div class="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50"><span class="theme-text-sub block text-[9px] truncate">${c}</span><span class="text-sm font-bold text-amber-400">${sosSum[c]}</span></div>`; });
-            bar.innerHTML = barH;
-
-            renderChart(nTot, cTot, crTot, selectedModel);
-        }
-
-        function openAssetDetail(assetId) {
-            const asset = globalFleetData.find(d => d.assetId === assetId);
-            if (!asset) return;
-            activeModalAsset = asset;
-
-            document.getElementById('modal-asset-id').innerText = asset.assetId;
-            document.getElementById('modal-model').innerText = asset.model;
-            document.getElementById('modal-serial').innerText = asset.serialNo;
-
-            let assetSmu = '-';
-            for (let k in asset.components) { if (asset.components[k].life !== '-') { assetSmu = asset.components[k].life; break; } }
-            document.getElementById('modal-smu').innerText = assetSmu;
-
-            let gridHTML = '';
-            let compList = getSortedComponents(asset.model);
-
-            compList.forEach(comp => {
-                let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                let stLower = cd.status.toLowerCase();
-                let isDone = cd.workOrder.toLowerCase() === 'done';
-                let badgeClass = isDone ? 'badge-done-gradasi' : (stLower.includes('critical') ? 'badge-critical' : (stLower.includes('caution') || stLower.includes('monitor') ? 'badge-caution' : 'badge-normal'));
-                let trendDotsDisplay = renderTrendDots(cd.trend);
-                let statusText = isDone ? `${cd.status} ✔️ Done` : cd.status;
-
-                gridHTML += `
-                    <div class="p-3 rounded-xl border border-slate-700 ${badgeClass} text-[10px] flex flex-col justify-between shadow-md">
-                        <div>
-                            <div class="flex justify-between items-center font-bold mb-1 border-b border-black/10 pb-1">
-                                <span class="uppercase text-slate-900 font-extrabold text-xs">${comp}</span>
-                                <span class="bg-white/90 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">${statusText}</span>
-                            </div>
-                            <div class="text-[10px] text-slate-800 mb-1">Component Life: <b>${cd.life}</b></div>
-                            ${cd.elements !== '-' ? `<div class="text-[9px] text-rose-800 font-extrabold bg-rose-200/80 px-1.5 py-0.5 rounded mb-1">⚠️ Elements: ${cd.elements}</div>` : ''}
-                            ${cd.action !== '-' ? `<div class="text-[9px] text-slate-900 font-semibold mb-2 bg-white/50 p-1.5 rounded border border-black/10 leading-snug">💡 <b>Action:</b> ${cd.action}</div>` : ''}
-                        </div>
-                        <div class="pt-1.5 border-t border-black/10 text-[9px] flex justify-between items-center font-mono text-slate-900">
-                            <span>Date: ${cd.sosDate}</span>
-                            <span class="flex items-center gap-1">Trend: ${trendDotsDisplay}</span>
-                        </div>
-                        <div class="truncate text-[9px] font-mono mt-1 text-slate-900">WO: <b>${cd.workOrder}</b></div>
-                    </div>
-                `;
-            });
-
-            document.getElementById('modal-components-grid').innerHTML = gridHTML;
-            document.getElementById('asset-modal').classList.remove('hidden');
-        }
-
-        function closeAssetModal() {
-            document.getElementById('asset-modal').classList.add('hidden');
-        }
-
-        // --- AMT MAINTENANCE HISTORY FUNCTIONS ---
-        async function openAmtHistoryFromModal() {
-            if (!activeModalAsset) return;
-            const assetId = activeModalAsset.assetId;
-            const serialNo = activeModalAsset.serialNo;
-
-            document.getElementById('amt-modal-subtitle').innerText = `Equipment: ${assetId} | S/N: ${serialNo} | Model: ${activeModalAsset.model}`;
-            document.getElementById('amt-table-body').innerHTML = `<tr><td colspan="6" class="p-6 text-center text-amber-400">Loading AMT Maintenance History...</td></tr>`;
-            document.getElementById('amt-modal').classList.remove('hidden');
-
-            if (!amtRowsGlobal || amtRowsGlobal.length === 0) {
-                await fetchAmtData();
-            }
-
-            renderAmtHistoryTable(assetId, serialNo);
-        }
-
-        function renderAmtHistoryTable(assetId, serialNo) {
-            if (!amtRowsGlobal || amtRowsGlobal.length === 0) {
-                document.getElementById('amt-table-body').innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-400">No AMT records available or failed to fetch.</td></tr>`;
-                document.getElementById('amt-record-count').innerText = "0 records";
-                return;
-            }
-
-            const sampleRow = amtRowsGlobal[0];
-            const keys = Object.keys(sampleRow);
-            const assetKey = keys.find(k => /asset|unit|eq/i.test(k)) || keys[0];
-            const serialKey = keys.find(k => /serial|sn|s\/n/i.test(k));
-            const woKey = keys.find(k => /wo|work.*order|order/i.test(k)) || keys[1];
-            const dateKey = keys.find(k => /date|tanggal|completion|time|plan.*start/i.test(k));
-            const durationKey = keys.find(k => /duration|durasi|smu|meter|hours/i.test(k));
-            const jobCodeKey = keys.find(k => /job.*code|job|code|modifier/i.test(k));
-            const statusKey = keys.find(k => /^status$|wo.*status|state/i.test(k));
-            const ageKey = keys.find(k => /^age$|age.*days|umur|hari/i.test(k));
-            const descKey = keys.find(k => /desc|description|detail|repair|action|comment/i.test(k));
-
-            const targetAsset = assetId.toString().trim().toUpperCase();
-            const targetSerial = serialNo ? serialNo.toString().trim().toUpperCase() : '';
-
-            activeAmtRecords = amtRowsGlobal.filter(r => {
-                let rAsset = r[assetKey] ? r[assetKey].toString().trim().toUpperCase() : '';
-                let rSerial = serialKey && r[serialKey] ? r[serialKey].toString().trim().toUpperCase() : '';
-                return (rAsset === targetAsset || (targetSerial && targetSerial !== '-' && rSerial === targetSerial));
-            });
-
-            document.getElementById('amt-record-count').innerText = `${activeAmtRecords.length} records found`;
-            displayAmtRows(activeAmtRecords, { dateKey, durationKey, woKey, jobCodeKey, statusKey, ageKey, descKey });
-        }
-
-        function displayAmtRows(records, keys) {
-            const body = document.getElementById('amt-table-body');
-            if (records.length === 0) {
-                body.innerHTML = `<tr><td colspan="6" class="p-6 text-center theme-text-sub">No maintenance history records found for this unit.</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            records.forEach(r => {
-                let dateVal = keys.dateKey && r[keys.dateKey] ? r[keys.dateKey].toString().trim() : '-';
-                let durationVal = keys.durationKey && r[keys.durationKey] ? r[keys.durationKey].toString().trim() : '';
-                let woVal = keys.woKey && r[keys.woKey] ? r[keys.woKey].toString().trim() : '-';
-                let jobVal = keys.jobCodeKey && r[keys.jobCodeKey] ? r[keys.jobCodeKey].toString().trim() : '-';
-                let rawStatus = keys.statusKey && r[keys.statusKey] ? r[keys.statusKey].toString().trim() : '-';
-                let statusUpper = rawStatus.toUpperCase();
-
-                let statusBadge = '';
-                if (statusUpper.includes('C')) {
-                    statusBadge = `<span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-extrabold text-[10px]">C (Complete)</span>`;
-                } else if (statusUpper.includes('O')) {
-                    statusBadge = `<span class="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded font-extrabold text-[10px]">O (Outstanding)</span>`;
-                } else if (statusUpper.includes('YTS')) {
-                    statusBadge = `<span class="bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-extrabold text-[10px]">YTS (Yet to Start)</span>`;
-                } else {
-                    statusBadge = `<span class="bg-slate-900 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">${rawStatus}</span>`;
-                }
-                
-                let rawAge = keys.ageKey && r[keys.ageKey] ? r[keys.ageKey].toString().trim() : '-';
-                let ageDisplay = '-';
-                if (rawAge !== '-' && !isNaN(parseFloat(rawAge))) {
-                    let roundedAge = Math.round(parseFloat(rawAge));
-                    let badgeColor = roundedAge > 30 ? 'bg-rose-950 text-rose-400 border-rose-800' : (roundedAge > 14 ? 'bg-amber-950 text-amber-400 border-amber-800' : 'bg-slate-800 text-slate-300 border-slate-750');
-                    ageDisplay = `<span class="px-2 py-0.5 rounded border font-mono font-bold text-[10px] ${badgeColor}">${roundedAge} days</span>`;
-                }
-
-                let descVal = keys.descKey && r[keys.descKey] ? r[keys.descKey].toString().trim() : '-';
-
-                html += `
-                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 text-xs">
-                        <td class="p-2.5 font-mono">
-                            <span class="text-slate-200 block font-bold">📅 ${dateVal}</span>
-                            ${durationVal ? `<span class="text-[9px] text-amber-400 font-bold bg-amber-950/60 px-1 rounded">Duration: ${durationVal} hrs</span>` : ''}
-                        </td>
-                        <td class="p-2.5 font-mono text-blue-400 font-bold">${woVal}</td>
-                        <td class="p-2.5 font-mono text-slate-300">${jobVal}</td>
-                        <td class="p-2.5 text-center">${statusBadge}</td>
-                        <td class="p-2.5 text-center">${ageDisplay}</td>
-                        <td class="p-2.5 text-slate-300 leading-relaxed">${descVal}</td>
-                    </tr>
-                `;
-            });
-            body.innerHTML = html;
-        }
-
-        function filterAmtTable() {
-            const query = document.getElementById('amt-search-input').value.toLowerCase();
-            if (!activeAmtRecords || activeAmtRecords.length === 0) return;
-
-            const filtered = activeAmtRecords.filter(r => {
-                return Object.values(r).some(val => val && val.toString().toLowerCase().includes(query));
-            });
-
-            document.getElementById('amt-record-count').innerText = `${filtered.length} of ${activeAmtRecords.length} records`;
-            
-            const sampleRow = activeAmtRecords[0];
-            const keys = Object.keys(sampleRow);
-            const woKey = keys.find(k => /wo|work.*order|order/i.test(k)) || keys[1];
-            const dateKey = keys.find(k => /date|tanggal|completion|time|plan.*start/i.test(k));
-            const durationKey = keys.find(k => /duration|durasi|smu|meter|hours/i.test(k));
-            const jobCodeKey = keys.find(k => /job.*code|job|code|modifier/i.test(k));
-            const statusKey = keys.find(k => /^status$|wo.*status|state/i.test(k));
-            const ageKey = keys.find(k => /^age$|age.*days|umur|hari/i.test(k));
-            const descKey = keys.find(k => /desc|description|detail|repair|action|comment/i.test(k));
-
-            displayAmtRows(filtered, { dateKey, durationKey, woKey, jobCodeKey, statusKey, ageKey, descKey });
-        }
-
-        function closeAmtModal() {
-            document.getElementById('amt-modal').classList.add('hidden');
-        }
-
-        function exportAssetExcel() {
-            if (!activeModalAsset) return;
-            const asset = activeModalAsset;
-            let assetSmu = '-';
-            for (let k in asset.components) { if (asset.components[k].life !== '-') { assetSmu = asset.components[k].life; break; } }
-            let compList = getSortedComponents(asset.model);
-
-            const sheetData = [
-                ["SMARTFLEET CONDITION MONITORING REPORT"],
-                ["Single Asset Technical Summary"],
-                [],
-                ["ASSET ID:", asset.assetId, "", "MODEL / TYPE:", asset.model],
-                ["SERIAL NUMBER (S/N):", asset.serialNo, "", "CURRENT SMU / LIFE:", assetSmu],
-                [],
-                ["No.", "Component Assembly", "Oil Health Status", "Component SMU", "Over Wear Elements", "Recommended Action", "SOS Sample Date", "Trend", "Work Order Number"]
-            ];
-
-            compList.forEach((comp, idx) => {
-                let cd = asset.components[comp] || { status: 'Normal', life: assetSmu, elements: '-', action: '-', sosDate: '-', trend: '-', workOrder: '-' };
-                sheetData.push([idx + 1, comp, cd.status, cd.life, cd.elements, cd.action, cd.sosDate, cd.trend, cd.workOrder]);
-            });
-
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(sheetData);
-            ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 25 }];
-            XLSX.utils.book_append_sheet(wb, ws, "Asset Condition");
-            XLSX.writeFile(wb, `Asset_${asset.assetId}_Condition_Report.xlsx`);
-        }
-
-        fetchAllData(true);
-    </script>
+function processRawRows(rows) {
+  if(!Array.isArray(rows))return;
+  const valid=rows.filter(r=>r && typeof r==='object');
+  if(!valid.length){globalFleetData=[];updateAllViews();return;}
+  const keys=Object.keys(valid[0]);
+  const col={
+    asset:chooseColumn(keys,['Asset ID','Unit ID','Equipment ID'],[/^asset.*id$/i,/^unit/i,/equipment.*id/i]),
+    serial:chooseColumn(keys,['Serial No','Serial Number','S/N'],[/serial/i,/^sn$/i]),
+    model:chooseColumn(keys,['Model','Asset Model'],[/model/i,/machine.*type/i]),
+    component:chooseColumn(keys,['Component','Component Name'],[/component/i,/assembly/i,/^system$/i]),
+    status:chooseColumn(keys,['Oil Summary Health','SOS Health','Health Status'],[/oil.*summary.*health/i,/health/i,/status/i]),
+    life:chooseColumn(keys,['Comp Life','Component Life'],[/comp.*life/i,/smu/i,/meter/i]),
+    elements:chooseColumn(keys,['Element Over'],[/element.*over/i,/over.*element/i]),
+    action:chooseColumn(keys,['Action','Recommended Action'],[/recommendation/i,/action/i]),
+    date:chooseColumn(keys,['SOS4.NewestSMU2.SOS Date','SOS Date'],[/sos.*date/i,/sample.*date/i,/newest.*date/i]),
+    trend:chooseColumn(keys,['Tren','Trend'],[/trend/i,/tren/i]),
+    workOrder:chooseColumn(keys,['Tool Tips','Work Order','WO'],[/tool.*tip/i,/work.*order/i,/^wo$/i])
+  };
+  if (!col.asset) { notify('CSV is missing an Asset ID column. Check your published Google Sheet headers.'); return; }
+  const unitMap=new Map();
+  for(const r of valid){
+    const asset=safeText(r[col.asset]);if(!asset)continue;
+    const component=(safeText(col.component && r[col.component]) || 'GENERAL').toUpperCase();
+    const model=safeText(col.model && r[col.model]) || 'UNSPECIFIED';
+    const serial=safeText(col.serial && r[col.serial]) || '-';
+    if(!unitMap.has(asset))unitMap.set(asset,{assetId:asset,model,serialNo:serial,components:{}});
+    const unit=unitMap.get(asset);
+    if(unit.model==='UNSPECIFIED'&&model!=='UNSPECIFIED')unit.model=model;
+    if(unit.serialNo==='-'&&serial!=='-')unit.serialNo=serial;
+    const rawStatus=safeText(col.status && r[col.status]);
+    const status=normalizeStatus(rawStatus);
+    const date=safeText(col.date && r[col.date])||'-';
+    const componentData={
+      status,rawStatus:rawStatus||'-',life:formatRoundedHours(col.life && r[col.life]),
+      elements:cleanWearElements(col.elements && r[col.elements]),
+      action:safeText(col.action && r[col.action])||'-',
+      sosDate:date,dateTimestamp:parseDateMaybe(date),
+      trend:safeText(col.trend && r[col.trend])||'-',
+      workOrder:safeText(col.workOrder && r[col.workOrder])||'-',isRealData:true
+    };
+    const previous=unit.components[component];
+    // Multiple samples: use the dated newest sample; if dates are missing, retain first row.
+    if(!previous || componentData.dateTimestamp>previous.dateTimestamp || (!previous.dateTimestamp&&componentData.dateTimestamp))unit.components[component]=componentData;
+  }
+  globalFleetData=Array.from(unitMap.values()).sort((a,b)=>a.assetId.localeCompare(b.assetId,undefined,{numeric:true,sensitivity:'base'}));
+  allUniqueModels=new Set(globalFleetData.map(d=>d.model));
+  if(currentSelectedModel!=='ALL'&&!allUniqueModels.has(currentSelectedModel))currentSelectedModel='ALL';
+  updateAllViews();
+}
+function getModelData(){return currentSelectedModel==='ALL'?globalFleetData:globalFleetData.filter(d=>d.model===currentSelectedModel)}
+function getSortedComponents(model='ALL') {
+  const names=new Set();for(const asset of globalFleetData){if(model==='ALL'||asset.model===model)Object.keys(asset.components).forEach(x=>names.add(x));}
+  return [...names].sort((a,b)=>{const x=preferredComponentOrder.indexOf(a),y=preferredComponentOrder.indexOf(b);return x>=0&&y>=0?x-y:x>=0?-1:y>=0?1:a.localeCompare(b)});
+}
+function computeStats(data){
+  const s={Normal:0,Caution:0,Critical:0,'No Data':0,criticalUnits:new Set(),cautionUnits:new Set()};
+  for(const unit of data)for(const comp of Object.values(unit.components)){
+    s[comp.status]=(s[comp.status]||0)+1;
+    if(comp.status==='Critical')s.criticalUnits.add(unit.assetId);
+    if(comp.status==='Caution')s.cautionUnits.add(unit.assetId);
+  }return s;
+}
+function getAssetSeverity(asset){return Math.max(0,...Object.values(asset.components).map(c=>numericScore(c.status)))}
+function getLatestSample(asset){return Math.max(0,...Object.values(asset.components).map(c=>c.dateTimestamp||0))}
+function isMatchSeverity(unit,filter){return filter==='ALL'||Object.values(unit.components).some(c=>c.status===filter)}
+function getVisibleRows(){
+  let units=getModelData().filter(row=>{
+    if(!isMatchSeverity(row,currentStatusFilter))return false;
+    const q=currentSearch.toLowerCase();if(!q)return true;
+    return [row.assetId,row.model,row.serialNo,...Object.keys(row.components)].some(v=>v.toLowerCase().includes(q));
+  });
+  if(currentSort==='risk')units=units.sort((a,b)=>getAssetSeverity(b)-getAssetSeverity(a)||a.assetId.localeCompare(b.assetId,undefined,{numeric:true}));
+  if(currentSort==='latest')units=units.sort((a,b)=>getLatestSample(b)-getLatestSample(a)||a.assetId.localeCompare(b.assetId,undefined,{numeric:true}));
+  return units;
+}
+function buildIconFilterBar(){
+  const bar=document.getElementById('icon-filter-bar');
+  let html=`<button class="model-btn ${currentSelectedModel==='ALL'?'selected':''}" type="button" data-model="ALL" onclick="selectModel(this.dataset.model)"><span class="w-9 h-9 rounded-lg bg-sky-500/20 flex items-center justify-center text-xl">🚜</span><span class="text-left"><strong class="block text-xs">All Fleet</strong><small class="text-[10px] opacity-75">${globalFleetData.length} units</small></span></button>`;
+  for(const m of [...allUniqueModels].sort()){
+    const meta=getModelIconSvg(m),count=globalFleetData.filter(x=>x.model===m).length;
+    html+=`<button class="model-btn ${currentSelectedModel===m?'selected':''}" type="button" data-model="${escapeHtml(m)}" onclick="selectModel(this.dataset.model)"><span class="w-10 h-8 flex justify-center items-center">${meta.svg}</span><span class="text-left"><strong class="block text-xs">${escapeHtml(m)}</strong><small class="text-[10px] opacity-75">${escapeHtml(meta.subtitle)} (${count})</small></span></button>`;
+  }bar.innerHTML=html;
+}
+function selectModel(model){currentSelectedModel=model;updateAllViews()}
+function filterByStatus(status){currentStatusFilter=status;document.getElementById('health-filter').value=status;updateAllViews()}
+function resetStatusFilter(){filterByStatus('ALL')}
+function resetAllFilters(){currentSelectedModel='ALL';currentStatusFilter='ALL';currentSearch='';currentSort='asset';document.getElementById('asset-search').value='';document.getElementById('health-filter').value='ALL';document.getElementById('sort-filter').value='asset';updateAllViews()}
+function updateAllViews(){
+  buildIconFilterBar();
+  const modelData=getModelData(),stats=computeStats(modelData);
+  const visible=getVisibleRows();
+  document.getElementById('metric-units').textContent=modelData.length.toLocaleString();
+  document.getElementById('metric-units-note').textContent=`${stats.Normal+stats.Caution+stats.Critical+stats['No Data']} sampled component records`;
+  document.getElementById('metric-critical').textContent=stats.Critical.toLocaleString();
+  document.getElementById('metric-caution').textContent=stats.Caution.toLocaleString();
+  document.getElementById('metric-missing').textContent=stats['No Data'].toLocaleString();
+  document.getElementById('metric-critical-units').textContent=`${stats.criticalUnits.size} affected units`;
+  document.getElementById('metric-caution-units').textContent=`${stats.cautionUnits.size} affected units`;
+  document.getElementById('unit-counter').textContent=`${visible.length} of ${modelData.length} units shown · ${stats.Normal+stats.Caution+stats.Critical+stats['No Data']} component records`;
+  document.getElementById('matrix-title').textContent=`Fleet Component Matrix · ${currentStatusFilter==='ALL'?'All statuses':currentStatusFilter}`;
+  document.getElementById('reset-filter-btn').classList.toggle('hidden',currentStatusFilter==='ALL');
+  document.getElementById('health-filter').value=currentStatusFilter;
+  renderChart(stats,currentSelectedModel);
+  renderComponentOverview(modelData);
+  renderTable(visible,getSortedComponents(currentSelectedModel));
+}
+function renderChart(stats,label){
+  const n=stats.Normal,c=stats.Caution,cr=stats.Critical,nd=stats['No Data'];
+  const total=n+c+cr+nd;
+  for(const [key,count] of [['normal',n],['caution',c],['critical',cr],['no-data',nd]])document.getElementById('stat-'+key).textContent=total?`${(count/total*100).toFixed(1)}%`:'0%';
+  document.getElementById('chart-model-label').textContent=label;
+  if(!window.Chart){document.getElementById('healthChart').style.display='none';return;}
+  document.getElementById('healthChart').style.display='block';
+  if(healthChartInstance)healthChartInstance.destroy();
+  healthChartInstance=new Chart(document.getElementById('healthChart'),{
+    type:'doughnut',data:{labels:['Normal','Caution','Critical','No Data'],datasets:[{data:[n,c,cr,nd],backgroundColor:['#10b981','#f59e0b','#f43f5e','#64748b'],hoverOffset:8,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:250},cutout:'72%',plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${ctx.raw} components`}}},onClick:(ev,els)=>{if(els.length)filterByStatus(['Normal','Caution','Critical','No Data'][els[0].index])}}
+  });
+}
+function renderComponentOverview(data){
+  const compCounts=new Map();for(const unit of data)for(const [name,cd] of Object.entries(unit.components)){
+    if(!compCounts.has(name))compCounts.set(name,{caution:0,critical:0});
+    if(cd.status==='Caution')compCounts.get(name).caution++;
+    if(cd.status==='Critical')compCounts.get(name).critical++;
+  }
+  const entries=[...compCounts.entries()].filter(([,v])=>v.caution||v.critical).sort((a,b)=>b[1].critical-a[1].critical||b[1].caution-a[1].caution).slice(0,12);
+  document.getElementById('sos-sum-bar').innerHTML=entries.length?entries.map(([name,v])=>`<button class="small-component" type="button" data-component="${escapeHtml(name)}" onclick="focusComponent(this.dataset.component)"><span class="theme-text-sub block text-[10px] truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</span><span class="font-bold block mt-1"><span class="text-rose-400">${v.critical} Cr</span> · <span class="text-amber-400">${v.caution} Ca</span></span></button>`).join(''):'<div class="col-span-full text-left text-xs theme-text-sub py-2">No critical or caution component records in this equipment selection.</div>';
+}
+function focusComponent(name){
+  currentSearch='';document.getElementById('asset-search').value='';updateAllViews();
+  // Highlight just the column, leaving severity filters unmodified.
+  const head=Array.from(document.querySelectorAll('#matrix-head th')).find(th=>th.dataset.component===name);
+  if(head){head.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});head.classList.add('text-amber-400');setTimeout(()=>head.classList.remove('text-amber-400'),2400)}else notify('Component not in the current matrix.');
+}
+function statusBadge(status){return {'Normal':'badge-normal','Caution':'badge-caution','Critical':'badge-critical','No Data':'badge-no-data'}[status]||'badge-no-data'}
+function isWorkOrderDone(val){return /^(done|completed|complete|closed|finished|yes|true)$/i.test(safeText(val))}
+function buildCard(cd,dim=false){
+  if(!cd)return `<div class="health-card badge-no-data" style="opacity:.64"><strong>Not monitored</strong><span class="text-[10px]">No source record for this component</span></div>`;
+  const done=isWorkOrderDone(cd.workOrder);
+  return `<div class="health-card ${statusBadge(cd.status)} ${dim?'opacity-25 grayscale':''}" title="${escapeHtml(cd.action)}"><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${escapeHtml(cd.status)}</strong><span class="life-pill" title="Component life">${escapeHtml(cd.life)}</span></div>${done?`<div><span class="done-pill">✓ WO Done</span></div>`:''}${cd.elements!=='-'?`<span class="text-[10px] font-bold">⚠ Elements: ${escapeHtml(cd.elements)}</span>`:''}${cd.action!=='-'?`<span class="action-line text-[10px]">${escapeHtml(cd.action)}</span>`:''}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line" title="${escapeHtml(cd.sosDate)}">${escapeHtml(cd.sosDate)}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trendDots(cd.trend)}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line" title="${escapeHtml(cd.workOrder)}">${escapeHtml(cd.workOrder)}</span></div></div></div>`;
+}
+function renderTable(data,components){
+  const head=document.getElementById('matrix-head'),body=document.getElementById('matrix-body');
+  head.innerHTML=`<tr><th class="p-3 sticky-asset-col w-36 min-w-[144px] text-xs text-sky-400">Asset ID</th>${components.map(comp=>`<th data-component="${escapeHtml(comp)}" class="p-3 comp-cell text-center text-[10px] border-r border-slate-700/30">${escapeHtml(comp)}</th>`).join('')}</tr>`;
+  if(!data.length){body.innerHTML=`<tr><td class="p-8 text-center theme-text-sub" colspan="${components.length+1}">No matching assets. Change the filters or search criteria.</td></tr>`;return;}
+  // Render in one batch to avoid expensive incremental reflows for the fleet matrix.
+  body.innerHTML=data.map(unit=>`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter)}</td>`).join('')}</tr>`).join('');
+}
+function openAssetDetail(assetId){
+  const asset=globalFleetData.find(a=>a.assetId===assetId);if(!asset)return;
+  activeModalAsset=asset;
+  document.getElementById('modal-asset-id').textContent=asset.assetId;
+  document.getElementById('modal-model').textContent=asset.model;
+  document.getElementById('modal-serial').textContent=asset.serialNo;
+  const first=Object.values(asset.components).find(c=>c.life!=='-');document.getElementById('modal-smu').textContent=first?first.life:'-';
+  const components=getSortedComponents(asset.model);
+  document.getElementById('modal-components-grid').innerHTML=components.map(name=>{
+    const cd=asset.components[name];return `<div class="p-3 rounded-xl border border-slate-700/40 bg-slate-900/80 text-slate-200 flex flex-col gap-2"><div class="flex justify-between items-start gap-2"><strong class="text-[11px] text-white">${escapeHtml(name)}</strong><span class="text-[10px] rounded-md px-1.5 py-1 ${statusBadge(cd?.status||'No Data')}">${escapeHtml(cd?.status||'Not monitored')}</span></div>${cd?`<div class="text-[10px]">Comp life: <b>${escapeHtml(cd.life)}</b></div>${cd.elements!=='-'?`<div class="text-[10px] text-rose-300">⚠ Elements: ${escapeHtml(cd.elements)}</div>`:''}${cd.action!=='-'?`<div class="p-2 rounded-lg text-[10px] bg-slate-800 text-slate-200">${escapeHtml(cd.action)}</div>`:''}<div class="text-[10px]">Sample: ${escapeHtml(cd.sosDate)} · Trend: ${trendDots(cd.trend)}</div><div class="text-[10px]">WO: <b>${escapeHtml(cd.workOrder)}</b>${isWorkOrderDone(cd.workOrder)?' ✓ Done':''}</div>`:'<span class="text-[10px] text-slate-400">No record for this unit/component.</span>'}</div>`;
+  }).join('');
+  showModal('asset-modal');
+}
+function showModal(id){document.getElementById(id).classList.remove('hidden');document.body.style.overflow='hidden'}
+function closeAssetModal(){document.getElementById('asset-modal').classList.add('hidden');if(document.getElementById('amt-modal').classList.contains('hidden'))document.body.style.overflow=''}
+function closeAmtModal(){document.getElementById('amt-modal').classList.add('hidden');if(document.getElementById('asset-modal').classList.contains('hidden'))document.body.style.overflow=''}
+function findAmtColumns(rows){
+  if(!rows?.length)return null;const keys=Object.keys(rows[0]);return {
+    asset:chooseColumn(keys,['Asset ID','Equipment ID'],[/asset.*id/i,/equipment/i,/^unit/i]),
+    serial:chooseColumn(keys,['Serial No','Serial Number','S/N'],[/serial/i,/^sn$/i]),
+    wo:chooseColumn(keys,['WO','Work Order','WO Number'],[/work.*order/i,/^wo/i]),
+    date:chooseColumn(keys,['Plan Start Date','Planned Start Date'],[/plan.*start/i,/start.*date/i,/^date$/i,/completion.*date/i]),
+    duration:chooseColumn(keys,['Duration','Duration Hours'],[/duration/i,/hours/i]),
+    job:chooseColumn(keys,['Job Code','Job Code / Modifier'],[/job.*code/i,/modifier/i]),
+    status:chooseColumn(keys,['WO Status','Status'],[/wo.*status/i,/^status$/i,/state/i]),
+    age:chooseColumn(keys,['Age (Days)','Age'],[/^age/i]),
+    desc:chooseColumn(keys,['Description','Repair Details'],[/desc/i,/repair/i,/details/i])
+  };
+}
+async function openAmtHistoryFromModal(){
+  if(!activeModalAsset)return;const asset=activeModalAsset;
+  document.getElementById('amt-modal-subtitle').textContent=`Equipment: ${asset.assetId} | S/N: ${asset.serialNo} | ${asset.model}`;
+  document.getElementById('amt-search-input').value='';
+  document.getElementById('amt-table-body').innerHTML='<tr><td colspan="6" class="p-6 text-center text-amber-400">Loading maintenance history...</td></tr>';
+  showModal('amt-modal');
+  if(!amtRowsGlobal.length)await fetchAmtData();
+  activeAmtKeys=findAmtColumns(amtRowsGlobal);
+  if(!activeAmtKeys){activeAmtRecords=[];renderAmtHistoryTable([]);return}
+  const id=asset.assetId.toUpperCase(),sn=asset.serialNo.toUpperCase();
+  const cols=activeAmtKeys;
+  const matchesById=amtRowsGlobal.filter(r=>cols.asset&&safeText(r[cols.asset]).toUpperCase()===id);
+  // Prefer exact Asset ID; serial number is fallback ONLY when asset ID has no matches.
+  activeAmtRecords=matchesById.length?matchesById:amtRowsGlobal.filter(r=>cols.serial&&sn!=='-'&&safeText(r[cols.serial]).toUpperCase()===sn);
+  activeAmtRecords.sort((a,b)=>parseDateMaybe(b[cols.date])-parseDateMaybe(a[cols.date]));
+  renderAmtHistoryTable(activeAmtRecords);
+}
+function getWoStatus(raw){
+  const s=safeText(raw).toUpperCase();
+  if(['C','COMPLETE','COMPLETED','CLOSED','DONE'].includes(s))return {label:'Complete',cls:'text-emerald-300 bg-emerald-950 border-emerald-700'};
+  if(['O','OPEN','OUTSTANDING','IN PROGRESS'].includes(s))return {label:'Outstanding',cls:'text-amber-300 bg-amber-950 border-amber-700'};
+  if(['YTS','YET TO START','NOT STARTED'].includes(s))return {label:'Yet to Start',cls:'text-slate-300 bg-slate-800 border-slate-600'};
+  return {label:s||'Unknown',cls:'text-slate-300 bg-slate-800 border-slate-600'};
+}
+function renderAmtHistoryTable(rows){
+  const cols=activeAmtKeys,body=document.getElementById('amt-table-body');
+  document.getElementById('amt-record-count').textContent=`${rows.length} of ${activeAmtRecords.length} records`;
+  if(!rows.length){body.innerHTML='<tr><td colspan="6" class="p-6 text-center text-slate-400">No matching maintenance records.</td></tr>';return;}
+  body.innerHTML=rows.map(r=>{
+    const date=safeText(cols.date&&r[cols.date])||'-',dur=safeText(cols.duration&&r[cols.duration]);
+    const wo=safeText(cols.wo&&r[cols.wo])||'-',job=safeText(cols.job&&r[cols.job])||'-';
+    const status=getWoStatus(cols.status&&r[cols.status]),age=safeText(cols.age&&r[cols.age]);
+    const ageNumber=Number(age),ageClass=Number.isFinite(ageNumber)&&ageNumber>30?'text-rose-400':Number.isFinite(ageNumber)&&ageNumber>14?'text-amber-400':'text-slate-300';
+    const description=safeText(cols.desc&&r[cols.desc])||'-';
+    return `<tr class="border-b border-slate-800/60 hover:bg-slate-800/30"><td class="p-2.5 text-slate-200">${escapeHtml(date)}${dur?`<small class="block text-amber-400">Duration: ${escapeHtml(dur)} hrs</small>`:''}</td><td class="p-2.5 text-sky-400 font-mono font-bold">${escapeHtml(wo)}</td><td class="p-2.5 text-slate-300">${escapeHtml(job)}</td><td class="p-2.5 text-center"><span class="inline-flex px-2 py-1 border rounded-md ${status.cls}">${escapeHtml(status.label)}</span></td><td class="p-2.5 text-center ${ageClass}">${escapeHtml(age||'-')}</td><td class="p-2.5 text-slate-200">${escapeHtml(description)}</td></tr>`;
+  }).join('');
+}
+function filterAmtTable(){
+  const q=document.getElementById('amt-search-input').value.trim().toLowerCase();
+  renderAmtHistoryTable(!q?activeAmtRecords:activeAmtRecords.filter(r=>Object.values(r).some(v=>safeText(v).toLowerCase().includes(q))));
+}
+function setSyncStatus(kind,label){
+  const el=document.getElementById('sync-status');el.textContent=label;
+  const palettes={ready:'text-slate-400 bg-slate-800/70 border-slate-700',loading:'text-amber-400 bg-amber-950/60 border-amber-700',ok:'text-emerald-400 bg-emerald-950/60 border-emerald-700',cache:'text-amber-400 bg-amber-950/60 border-amber-700',error:'text-rose-400 bg-rose-950/60 border-rose-700'};
+  el.className=`text-xs px-3 py-1.5 rounded-lg border ${palettes[kind]||palettes.ready}`;
+}
+function dataMeta(label){document.getElementById('data-meta').textContent=label}
+async function fetchCsv(url,timeoutMs=13000){
+  if(!window.Papa)throw new Error('CSV parser could not be loaded. Check internet connectivity.');
+  const withStamp=url+(url.includes('?')?'&':'?')+'t='+Date.now();
+  const attempt=async(target,ms)=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);try{
+    const response=await fetch(target,{signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);
+    const csv=await response.text();if(!csv.trim())throw new Error('Empty data feed');
+    const parsed=Papa.parse(csv,{header:true,skipEmptyLines:'greedy',transformHeader:x=>x.trim()});
+    if(!parsed.data?.length)throw new Error('No records');
+    return parsed.data;
+  }finally{clearTimeout(timer)}};
+  try{return await attempt(withStamp,timeoutMs)}catch(firstError){
+    // Public published Google Sheets may sometimes block direct browser access. Fallback only for public feeds.
+    const fallback='https://api.allorigins.win/raw?url='+encodeURIComponent(withStamp);
+    try{return await attempt(fallback,8500)}catch(secondError){throw firstError}
+  }
+}
+async function fetchAmtData(){
+  try{const rows=await fetchCsv(amtUrlData);amtRowsGlobal=rows;cachedSet('smartfleet_amt_csv',rows);return true}
+  catch(e){const cached=cachedGet('smartfleet_amt_csv');if(Array.isArray(cached)){amtRowsGlobal=cached;return false}amtRowsGlobal=[];return false}
+}
+async function fetchAllData(){
+  if(syncing)return;syncing=true;const btn=document.getElementById('sync-button');btn.disabled=true;
+  const old=cachedGet('smartfleet_main_csv');if(!rawRowsGlobal.length&&Array.isArray(old)&&old.length){rawRowsGlobal=old;processRawRows(old);dataMeta('Showing local cached data while checking published Google Sheets...')}
+  setSyncStatus('loading','Syncing...');
+  try{
+    const rows=await fetchCsv(mainUrlData);
+    rawRowsGlobal=rows;processRawRows(rows);cachedSet('smartfleet_main_csv',rows);
+    lastSuccessfulSync=new Date();try{localStorage.setItem('smartfleet_sync_at',lastSuccessfulSync.toISOString())}catch(e){}
+    setSyncStatus('ok','✓ Live data');dataMeta(`Last successful sync: ${lastSuccessfulSync.toLocaleString()} · ${rows.length.toLocaleString()} source rows · Google Sheets`);
+  }catch(e){
+    if(rawRowsGlobal.length){setSyncStatus('cache','⚠ Cached data');const last=safeLocalGet('smartfleet_sync_at');dataMeta(`Offline / feed unavailable · Cached data${last?' from '+new Date(last).toLocaleString():''}. Source is NOT live.`);notify('Unable to reach Google Sheets. Showing cached data.')}else{setSyncStatus('error','✕ No data');dataMeta('Unable to load Google Sheets and no cached data is available');document.getElementById('matrix-body').innerHTML='<tr><td class="p-8 text-center" colspan="20">Connect to the internet and check the published Google Sheets CSV URL.</td></tr>';notify(e.message||'Data unavailable')}
+  }finally{btn.disabled=false;syncing=false;}
+  // AMT data is a secondary source; do not let its availability block the main dashboard.
+  fetchAmtData();
+}
+function makeRowsForExport(assets){
+  const rows=[];for(const asset of assets)for(const [name,c] of Object.entries(asset.components))rows.push([asset.assetId,asset.model,asset.serialNo,name,c.status,c.life,c.elements,c.action,c.sosDate,c.trend,c.workOrder,isWorkOrderDone(c.workOrder)?'Done':'',c.rawStatus]);
+  return rows;
+}
+const exportColumns=['Asset ID','Model','Serial Number','Component','Health Status','Component Life','Wear Elements','Recommended Action','SOS Sample Date','Trend','WO Number / Status','WO Completed','Raw Health Value'];
+async function exportWorkbook(rows,fileName,sheetName='Fleet Condition'){
+  if(!rows.length){notify('There are no source records to export.');return}
+  const safeRows=rows.map(row=>row.map(v=>excelSafe(v)));
+  // ExcelJS preserves cell fills, font colors, borders and filters in real .xlsx files.
+  if(window.ExcelJS){
+    try{
+      const workbook=new ExcelJS.Workbook();workbook.creator='SmartFleet';workbook.created=new Date();
+      const sheet=workbook.addWorksheet(sheetName,{views:[{state:'frozen',ySplit:1}]});
+      sheet.addRow(exportColumns);safeRows.forEach(row=>sheet.addRow(row));
+      const widths=[16,18,22,28,19,18,18,48,21,16,26,16,21];
+      sheet.columns=widths.map(width=>({width}));
+      const header=sheet.getRow(1);header.height=27;header.eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF102849'}};cell.font={bold:true,color:{argb:'FFFFFFFF'},size:11};cell.alignment={vertical:'middle'};cell.border={bottom:{style:'thin',color:{argb:'FF38BDF8'}}}});
+      sheet.autoFilter={from:'A1',to:'M1'};
+      for(let r=2;r<=safeRows.length+1;r++){
+        const row=sheet.getRow(r);row.height=23;
+        if(r%2===0)row.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F8FF'}}});
+        const st=String(safeRows[r-2][4]),cell=sheet.getCell(r,5);
+        const colors={Critical:['FFFEE2E2','FF991B1B'],Caution:['FFFEF3C7','FF92400E'],Normal:['FFDCFCE7','FF166534'],'No Data':['FFE2E8F0','FF475569']};
+        if(colors[st]){cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:colors[st][0]}};cell.font={bold:true,color:{argb:colors[st][1]}};}
+        if(safeRows[r-2][11]==='Done'){const done=sheet.getCell(r,12);done.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFDCFCE7'}};done.font={bold:true,color:{argb:'FF166534'}}}
+      }
+      const buffer=await workbook.xlsx.writeBuffer();downloadBlob(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fileName);notify(`Exported ${rows.length} records to Excel.`);return;
+    }catch(e){console.warn('ExcelJS failed; switching to SheetJS.',e)}
+  }
+  if(window.XLSX){
+    const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet([exportColumns,...safeRows]);
+    ws['!cols']=[16,18,22,28,19,18,18,48,21,16,26,16,21].map(wch=>({wch}));ws['!autofilter']={ref:'A1:M'+(safeRows.length+1)};
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);XLSX.writeFile(wb,fileName);notify('Exported Excel. Color formatting is unavailable because ExcelJS failed to load.');return;
+  }
+  notify('Excel export libraries are unavailable. Check your internet connection.');
+}
+function downloadBlob(blob,name){const href=URL.createObjectURL(blob),a=document.createElement('a');a.href=href;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(href),3000)}
+function exportAssetExcel(){if(!activeModalAsset)return;return exportWorkbook(makeRowsForExport([activeModalAsset]),`Asset_${activeModalAsset.assetId}_Condition_Report.xlsx`,'Asset Condition')}
+function exportFleetExcel(){const units=getVisibleRows();return exportWorkbook(makeRowsForExport(units),`SmartFleet_Condition_${new Date().toISOString().slice(0,10)}.xlsx`,'Fleet Condition')}
+function exportAmtExcel(){
+  if(!activeAmtRecords.length){notify('No AMT records available to export.');return}
+  const c=activeAmtKeys,rows=activeAmtRecords.map(r=>[c.date&&r[c.date],c.wo&&r[c.wo],c.job&&r[c.job],c.status&&r[c.status],c.age&&r[c.age],c.duration&&r[c.duration],c.desc&&r[c.desc]].map(excelSafe));
+  if(!window.XLSX){notify('Excel library unavailable.');return}
+  const ws=XLSX.utils.aoa_to_sheet([['Plan Start Date','Work Order','Job Code / Modifier','Status','Age (Days)','Duration (Hours)','Description'],...rows]);
+  ws['!cols']=[20,22,24,18,12,18,65].map(wch=>({wch}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'AMT History');
+  XLSX.writeFile(wb,`AMT_${activeModalAsset?.assetId||'Fleet'}_History.xlsx`);
+  notify(`Exported ${rows.length} AMT records.`);
+}
+function initPwa(){
+  const btn=document.getElementById('pwa-install-btn');
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();pendingInstallPrompt=e;btn.hidden=false});
+  btn.addEventListener('click',async()=>{if(pendingInstallPrompt){pendingInstallPrompt.prompt();await pendingInstallPrompt.userChoice;pendingInstallPrompt=null;btn.hidden=true}else notify('Use your browser menu → Install App. Requires HTTPS and valid PWA files.')});
+  window.addEventListener('appinstalled',()=>{btn.hidden=true;pendingInstallPrompt=null;notify('SmartFleet app installed.')});
+  if('serviceWorker' in navigator&&window.isSecureContext)navigator.serviceWorker.register('./service-worker.js').catch(err=>console.warn('PWA service worker:',err));
+}
+function initUi(){
+  changeTheme(safeLocalGet('smartfleet_theme')||'slate');
+  document.getElementById('asset-search').addEventListener('input',e=>{currentSearch=e.target.value.trim();updateAllViews()});
+  document.getElementById('health-filter').addEventListener('change',e=>filterByStatus(e.target.value));
+  document.getElementById('sort-filter').addEventListener('change',e=>{currentSort=e.target.value;updateAllViews()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAmtModal();closeAssetModal();}});
+  document.querySelectorAll('#asset-modal,#amt-modal').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal){if(modal.id==='amt-modal')closeAmtModal();else closeAssetModal()}}));
+  initPwa();fetchAllData();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initUi);else initUi();
+</script>
 </body>
 </html>
