@@ -41,6 +41,11 @@
     .badge-caution {background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
     .badge-critical {background:#ffe4e6;color:#9f1239;border:1px solid #fda4af}
     .badge-no-data {background:#e2e8f0;color:#475569;border:1px dashed #94a3b8}
+    /* Only Critical with a completed WO gets the red-to-yellow gradient. */
+    .badge-critical-done {background:linear-gradient(125deg,#fecaca 0%,#fda4af 34%,#fde68a 100%);color:#7f1d1d;border:1px solid #f59e0b}
+    .badge-critical-done .life-pill {color:#7f1d1d}
+    .badge-critical-done .done-pill {background:#fff7edcc;color:#7f1d1d;border:1px solid #fb923c}
+    .badge-placeholder-normal {background:#dcfce7;color:#166534;border:1px solid #86efac}
     .comp-cell {width:196px;min-width:196px;max-width:196px}
     .table-container {max-height:min(70vh,850px);overflow:auto;overscroll-behavior:contain;position:relative;scrollbar-color:#64748b transparent;scrollbar-width:thin}
     thead th {position:sticky;top:0;z-index:20;background:var(--sticky-head)!important;box-shadow:inset 0 -1px 0 var(--border-color);color:var(--text-sub)}
@@ -88,7 +93,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.0 · Actionable SOS health & maintenance intelligence</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.1 · SMU-linked unmonitored cells & WO Done highlighting</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -315,9 +320,30 @@ function cleanWearElements(raw) {
   const parts = safeText(raw).split(/[;,]/).map(x=>x.trim().toUpperCase()).filter(x=>valid.has(x));
   return [...new Set(parts)].join(', ') || '-';
 }
+function parseMeterValue(val){
+  let s=safeText(val).replace(/\s*(hrs?|hours?)\s*$/i,'').replace(/\s+/g,'');
+  if(!s||s==='-'||s==='#N/A')return NaN;
+  if(!/^[+-]?[0-9.,]+$/.test(s))return NaN;
+  const lastDot=s.lastIndexOf('.'),lastComma=s.lastIndexOf(',');
+  if(lastDot>=0&&lastComma>=0){
+    // 1,234.5 and 1.234,5 are both supported.
+    const decimal=lastDot>lastComma?'.':',';
+    const group=decimal==='.'?',':'.';
+    s=s.split(group).join('').replace(decimal,'.');
+  }else{
+    const sep=lastDot>=0?'.':lastComma>=0?',':null;
+    if(sep){
+      const parts=s.split(sep),last=parts[parts.length-1];
+      // Treat groupings of exactly three digits as thousands, not decimals.
+      const grouped=parts.length>2?parts.slice(1).every(v=>v.length===3):last.length===3&&parts[0].length<=3;
+      s=grouped?parts.join(''):s.replace(sep,'.');
+    }
+  }
+  return Number(s);
+}
 function formatRoundedHours(val) {
   const s=safeText(val);if(!s||s==='-'||s==='#N/A')return '-';
-  const number=Number(s.replace(/\s/g,'').replace(/,/g,'.'));
+  const number=parseMeterValue(s);
   return Number.isFinite(number) ? `${Math.round(number).toLocaleString('en-US')} hrs` : s;
 }
 function trendDots(trendStr) {
@@ -380,6 +406,8 @@ function processRawRows(rows) {
     component:chooseColumn(keys,['Component','Component Name'],[/component/i,/assembly/i,/^system$/i]),
     status:chooseColumn(keys,['Oil Summary Health','SOS Health','Health Status'],[/oil.*summary.*health/i,/health/i,/status/i]),
     life:chooseColumn(keys,['Comp Life','Component Life'],[/comp.*life/i,/smu/i,/meter/i]),
+    // Prefer a distinct per-machine SMU field. Do not silently treat a component's life as the machine SMU.
+    smu:chooseColumn(keys,['Current SMU','Latest SMU','Asset SMU','Equipment SMU','Machine SMU','Unit SMU','SMU'],[/^(current|latest|asset|equipment|machine|unit)[\s_-]*smu$/i,/^smu$/i,/^(current|latest).*hour.*meter$/i]),
     elements:chooseColumn(keys,['Element Over'],[/element.*over/i,/over.*element/i]),
     action:chooseColumn(keys,['Action','Recommended Action'],[/recommendation/i,/action/i]),
     date:chooseColumn(keys,['SOS4.NewestSMU2.SOS Date','SOS Date'],[/sos.*date/i,/sample.*date/i,/newest.*date/i]),
@@ -393,10 +421,12 @@ function processRawRows(rows) {
     const component=(safeText(col.component && r[col.component]) || 'GENERAL').toUpperCase();
     const model=safeText(col.model && r[col.model]) || 'UNSPECIFIED';
     const serial=safeText(col.serial && r[col.serial]) || '-';
-    if(!unitMap.has(asset))unitMap.set(asset,{assetId:asset,model,serialNo:serial,components:{}});
+    if(!unitMap.has(asset))unitMap.set(asset,{assetId:asset,model,serialNo:serial,smu:'-',components:{}});
     const unit=unitMap.get(asset);
     if(unit.model==='UNSPECIFIED'&&model!=='UNSPECIFIED')unit.model=model;
     if(unit.serialNo==='-'&&serial!=='-')unit.serialNo=serial;
+    const incomingSmu=formatRoundedHours(col.smu && r[col.smu]);
+    if(incomingSmu!=='-'&&(unit.smu==='-'||smuNumber(incomingSmu)>smuNumber(unit.smu)))unit.smu=incomingSmu;
     const rawStatus=safeText(col.status && r[col.status]);
     const status=normalizeStatus(rawStatus);
     const date=safeText(col.date && r[col.date])||'-';
@@ -416,6 +446,17 @@ function processRawRows(rows) {
   allUniqueModels=new Set(globalFleetData.map(d=>d.model));
   if(currentSelectedModel!=='ALL'&&!allUniqueModels.has(currentSelectedModel))currentSelectedModel='ALL';
   updateAllViews();
+}
+function smuNumber(text){
+  const n=parseMeterValue(text);return Number.isFinite(n)?n:-1;
+}
+function getAssetReferenceSmu(asset){
+  if(asset.smu&&asset.smu!=='-')return asset.smu;
+  // Some published feeds expose Comp Life but no separate SMU column. Use the newest
+  // available recorded life as a display reference, without creating a sampled health record.
+  const candidates=Object.values(asset.components).filter(c=>c.life&&c.life!=='-');
+  candidates.sort((a,b)=>(b.dateTimestamp||0)-(a.dateTimestamp||0)||smuNumber(b.life)-smuNumber(a.life));
+  return candidates.length?candidates[0].life:'-';
 }
 function getModelData(){return currentSelectedModel==='ALL'?globalFleetData:globalFleetData.filter(d=>d.model===currentSelectedModel)}
 function getSortedComponents(model='ALL') {
@@ -504,17 +545,30 @@ function focusComponent(name){
 }
 function statusBadge(status){return {'Normal':'badge-normal','Caution':'badge-caution','Critical':'badge-critical','No Data':'badge-no-data'}[status]||'badge-no-data'}
 function isWorkOrderDone(val){return /^(done|completed|complete|closed|finished|yes|true)$/i.test(safeText(val))}
-function buildCard(cd,dim=false){
-  if(!cd)return `<div class="health-card badge-no-data" style="opacity:.64"><strong>Not monitored</strong><span class="text-[10px]">No source record for this component</span></div>`;
-  const done=isWorkOrderDone(cd.workOrder);
-  return `<div class="health-card ${statusBadge(cd.status)} ${dim?'opacity-25 grayscale':''}" title="${escapeHtml(cd.action)}"><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${escapeHtml(cd.status)}</strong><span class="life-pill" title="Component life">${escapeHtml(cd.life)}</span></div>${done?`<div><span class="done-pill">✓ WO Done</span></div>`:''}${cd.elements!=='-'?`<span class="text-[10px] font-bold">⚠ Elements: ${escapeHtml(cd.elements)}</span>`:''}${cd.action!=='-'?`<span class="action-line text-[10px]">${escapeHtml(cd.action)}</span>`:''}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line" title="${escapeHtml(cd.sosDate)}">${escapeHtml(cd.sosDate)}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trendDots(cd.trend)}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line" title="${escapeHtml(cd.workOrder)}">${escapeHtml(cd.workOrder)}</span></div></div></div>`;
+function buildCard(cd,dim=false,assetReferenceSmu='-'){
+  const isPlaceholder=!cd;
+  // A missing source row looks like a Normal tile, but is NOT inserted into fleet
+  // data and must never be included in health metrics or source-based exports.
+  const item=cd||{status:'Normal',life:assetReferenceSmu,elements:'',action:'',sosDate:'',trend:'',workOrder:''};
+  const done=!isPlaceholder&&isWorkOrderDone(item.workOrder);
+  const isCriticalDone=done&&item.status==='Critical';
+  const cls=isCriticalDone?'badge-critical-done':isPlaceholder?'badge-placeholder-normal':statusBadge(item.status);
+  const severity=escapeHtml(item.status);
+  const life=escapeHtml(item.life||'-');
+  const elements=!isPlaceholder&&item.elements&&item.elements!=='-'?`<span class="text-[10px] font-bold">⚠ Elements: ${escapeHtml(item.elements)}</span>`:'';
+  const action=!isPlaceholder&&item.action&&item.action!=='-'?`<span class="action-line text-[10px]">${escapeHtml(item.action)}</span>`:'';
+  const sample=isPlaceholder?'':escapeHtml(item.sosDate||'-');
+  const trend=isPlaceholder?'':trendDots(item.trend);
+  const wo=isPlaceholder?'':done?'<span class="font-bold">✓ WO Done</span>':escapeHtml(item.workOrder||'-');
+  const donePill=done?'<div><span class="done-pill">✓ WO Done</span></div>':'';
+  return `<div class="health-card ${cls} ${dim?'opacity-25 grayscale':''}" ${isPlaceholder?'data-not-monitored="true" title="No source record (visual Normal placeholder only)"':`title="${escapeHtml(item.action)}"`}><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${severity}</strong><span class="life-pill" title="Component life / reference SMU">${life}</span></div>${donePill}${elements}${action}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line">${sample}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trend||'<span class="value-line"></span>'}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line">${wo}</span></div></div></div>`;
 }
 function renderTable(data,components){
   const head=document.getElementById('matrix-head'),body=document.getElementById('matrix-body');
   head.innerHTML=`<tr><th class="p-3 sticky-asset-col w-36 min-w-[144px] text-xs text-sky-400">Asset ID</th>${components.map(comp=>`<th data-component="${escapeHtml(comp)}" class="p-3 comp-cell text-center text-[10px] border-r border-slate-700/30">${escapeHtml(comp)}</th>`).join('')}</tr>`;
   if(!data.length){body.innerHTML=`<tr><td class="p-8 text-center theme-text-sub" colspan="${components.length+1}">No matching assets. Change the filters or search criteria.</td></tr>`;return;}
   // Render in one batch to avoid expensive incremental reflows for the fleet matrix.
-  body.innerHTML=data.map(unit=>`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter)}</td>`).join('')}</tr>`).join('');
+  body.innerHTML=data.map(unit=>`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,getAssetReferenceSmu(unit))}</td>`).join('')}</tr>`).join('');
 }
 function openAssetDetail(assetId){
   const asset=globalFleetData.find(a=>a.assetId===assetId);if(!asset)return;
@@ -522,10 +576,11 @@ function openAssetDetail(assetId){
   document.getElementById('modal-asset-id').textContent=asset.assetId;
   document.getElementById('modal-model').textContent=asset.model;
   document.getElementById('modal-serial').textContent=asset.serialNo;
-  const first=Object.values(asset.components).find(c=>c.life!=='-');document.getElementById('modal-smu').textContent=first?first.life:'-';
+  const referenceSmu=getAssetReferenceSmu(asset);document.getElementById('modal-smu').textContent=referenceSmu;
   const components=getSortedComponents(asset.model);
   document.getElementById('modal-components-grid').innerHTML=components.map(name=>{
-    const cd=asset.components[name];return `<div class="p-3 rounded-xl border border-slate-700/40 bg-slate-900/80 text-slate-200 flex flex-col gap-2"><div class="flex justify-between items-start gap-2"><strong class="text-[11px] text-white">${escapeHtml(name)}</strong><span class="text-[10px] rounded-md px-1.5 py-1 ${statusBadge(cd?.status||'No Data')}">${escapeHtml(cd?.status||'Not monitored')}</span></div>${cd?`<div class="text-[10px]">Comp life: <b>${escapeHtml(cd.life)}</b></div>${cd.elements!=='-'?`<div class="text-[10px] text-rose-300">⚠ Elements: ${escapeHtml(cd.elements)}</div>`:''}${cd.action!=='-'?`<div class="p-2 rounded-lg text-[10px] bg-slate-800 text-slate-200">${escapeHtml(cd.action)}</div>`:''}<div class="text-[10px]">Sample: ${escapeHtml(cd.sosDate)} · Trend: ${trendDots(cd.trend)}</div><div class="text-[10px]">WO: <b>${escapeHtml(cd.workOrder)}</b>${isWorkOrderDone(cd.workOrder)?' ✓ Done':''}</div>`:'<span class="text-[10px] text-slate-400">No record for this unit/component.</span>'}</div>`;
+    const cd=asset.components[name];
+    return `<div class="rounded-xl border border-slate-700/40 p-2 flex flex-col gap-2"><strong class="text-[11px] theme-text-sub uppercase">${escapeHtml(name)}</strong>${buildCard(cd,false,referenceSmu)}${cd&&cd.action&&cd.action!=='-'?`<div class="text-[10px] theme-text-sub px-1">Action: ${escapeHtml(cd.action)}</div>`:''}</div>`;
   }).join('');
   showModal('asset-modal');
 }
