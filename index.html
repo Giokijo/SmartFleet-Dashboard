@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Health Fleet-Condition Monitoring</title>
+    <title>HealthFleet · Condition Monitoring</title>
     <!-- Progressive Web App: desktop + mobile -->
     <meta name="theme-color" content="#020617">
     <meta name="application-name" content="Fleet Health">
@@ -44,6 +44,16 @@
     .badge-critical-done .life-pill {color:#7f1d1d}
     .badge-critical-done .done-pill {background:#fff7edcc;color:#7f1d1d;border:1px solid #fb923c}
     .badge-placeholder-normal {background:#dcfce7;color:#166534;border:1px solid #86efac}
+    /* Added alert lives INSIDE the ENGINE tile and never replaces SOS severity or WO coloring. */
+    .engine-oil-slot:empty {display:none}
+    .engine-oil-alert {display:block;width:100%;text-align:left;margin:2px 0;padding:6px 7px;border-radius:8px;
+      background:linear-gradient(105deg,#fffbeb,#fde68a);border:1px solid #d97706;color:#78350f;
+      box-shadow:0 1px 4px rgba(146,64,14,.14);cursor:pointer;line-height:1.25}
+    .engine-oil-alert:hover {filter:brightness(.965);box-shadow:0 3px 9px rgba(146,64,14,.22)}
+    .engine-oil-alert:focus-visible {outline:2px solid #0369a1;outline-offset:2px}
+    .engine-oil-alert small {display:block;font-size:9px;font-weight:600;opacity:.9;margin-top:3px;overflow-wrap:anywhere}
+    .engine-oil-alert strong {display:block;font-size:10px;font-weight:800}
+    .engine-oil-alert[data-stale="true"] {border-style:dashed}
     .comp-cell {width:196px;min-width:196px;max-width:196px}
     .table-container {max-height:min(70vh,850px);overflow:auto;overscroll-behavior:contain;position:relative;scrollbar-color:#64748b transparent;scrollbar-width:thin}
     thead th {position:sticky;top:0;z-index:20;background:var(--sticky-head)!important;box-shadow:inset 0 -1px 0 var(--border-color);color:var(--text-sub)}
@@ -91,7 +101,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.3 · Fast Sync · Lube Top Up History</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.4 · Fast Sync · Engine Oil Top-Up Alerts</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -109,7 +119,8 @@
             </div>
         </header>
 
-        <div id="data-meta" class="-mt-3 mb-5 px-1 text-[11px] theme-text-sub">Data source: Google Sheets · Awaiting first sync</div>
+        <div id="data-meta" class="-mt-3 mb-1 px-1 text-[11px] theme-text-sub">Data source: Google Sheets · Awaiting first sync</div>
+        <div id="engine-oil-source-state" class="mb-5 px-1 text-[11px] theme-text-sub" role="status" aria-live="polite">🛢 Engine oil top-up alerts (7d): checking source…</div>
         <!-- Fleet KPI overview; data is calculated from reporting records, not synthetic placeholders -->
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" aria-label="Fleet condition key indicators">
             <div class="summary-metric"><div class="theme-text-sub text-[10px] uppercase font-semibold tracking-wide">Equipment monitored</div><div class="summary-number mt-1" id="metric-units">—</div><div class="text-[10px] theme-text-sub" id="metric-units-note">All available equipment</div></div>
@@ -310,7 +321,7 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.3 · Fast Sync · Condition & Lube Top Up · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.4 · Fast Sync · Condition, Lube History & Engine Oil Alerts · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -321,6 +332,10 @@ const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmj
 const lubeUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv";
 const LUBE_CACHE_TTL_MS = 120000; // Only check Google Sheets when Lube Top Up is opened; short-lived in-memory reuse.
 let lubeRowsGlobal = [], lubeColumns = null, activeLubeRecords = [], lubeLastSyncedAt = 0, lubeInFlight = null, lubeLastError = null;
+const ENGINE_OIL_TYPE_KEY = 'SHELLRIMULAR4X15W40';
+const ENGINE_OIL_WINDOW_DAYS = 7;
+const ENGINE_OIL_MIN_EVENTS = 2;
+let engineOilAlerts = new Map(), engineOilWindowDay = '', engineOilLastAlertSource = 'checking';
 
 const preferredComponentOrder = ["ENGINE","TORQUE CONVERTER","TRANSMISSION","DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT","FINAL DRIVE FRONT RIGHT","WHEEL BEARINGS FRONT LEFT","WHEEL BEARINGS FRONT RIGHT","DIFFERENTIAL REAR","FINAL DRIVE REAR LEFT","FINAL DRIVE REAR RIGHT","TANDEM LEFT","TANDEM RIGHT","PUMP DRIVE","SWING DRIVE LEFT","SWING DRIVE RIGHT","STEERING SYSTEM","HYDRAULIC SYSTEM","RADIATOR","VIMS","PRODUCT LINK"];
 let rawRowsGlobal = [], globalFleetData = [], amtRowsGlobal = [];
@@ -510,6 +525,7 @@ function processRawRows(rows) {
   allUniqueModels=new Set(globalFleetData.map(d=>d.model));
   if(currentSelectedModel!=='ALL'&&!allUniqueModels.has(currentSelectedModel))currentSelectedModel='ALL';
   updateAllViews();
+  setEngineOilStatus(engineOilLastAlertSource);
 }
 function smuNumber(text){
   const n=parseMeterValue(text);return Number.isFinite(n)?n:-1;
@@ -525,6 +541,8 @@ function getAssetReferenceSmu(asset){
 function getModelData(){return currentSelectedModel==='ALL'?globalFleetData:globalFleetData.filter(d=>d.model===currentSelectedModel)}
 function getSortedComponents(model='ALL') {
   const names=new Set();for(const asset of globalFleetData){if(model==='ALL'||asset.model===model)Object.keys(asset.components).forEach(x=>names.add(x));}
+  // An engine top-up event may exist without an ENGINE SOS row: show the alert on a visual placeholder.
+  if(globalFleetData.some(asset=>(model==='ALL'||asset.model===model)&&engineOilAlerts.has(normalizeEquipNo(asset.assetId))))names.add('ENGINE');
   return [...names].sort((a,b)=>{const x=preferredComponentOrder.indexOf(a),y=preferredComponentOrder.indexOf(b);return x>=0&&y>=0?x-y:x>=0?-1:y>=0?1:a.localeCompare(b)});
 }
 function computeStats(data){
@@ -609,7 +627,7 @@ function focusComponent(name){
 }
 function statusBadge(status){return {'Normal':'badge-normal','Caution':'badge-caution','Critical':'badge-critical','No Data':'badge-no-data'}[status]||'badge-no-data'}
 function isWorkOrderDone(val){return /^(done|completed|complete|closed|finished|yes|true)$/i.test(safeText(val))}
-function buildCard(cd,dim=false,assetReferenceSmu='-'){
+function buildCard(cd,dim=false,assetReferenceSmu='-',assetId='',componentName=''){
   const isPlaceholder=!cd;
   // A missing source row looks like a Normal tile, but is NOT inserted into fleet
   // data and must never be included in health metrics or source-based exports.
@@ -625,7 +643,11 @@ function buildCard(cd,dim=false,assetReferenceSmu='-'){
   const trend=isPlaceholder?'':trendDots(item.trend);
   const wo=isPlaceholder?'':done?'<span class="font-bold">✓ WO Done</span>':escapeHtml(item.workOrder||'-');
   const donePill=done?'<div><span class="done-pill">✓ WO Done</span></div>':'';
-  return `<div class="health-card ${cls} ${dim?'opacity-25 grayscale':''}" ${isPlaceholder?'data-not-monitored="true" title="No source record (visual Normal placeholder only)"':`title="${escapeHtml(item.action)}"`}><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${severity}</strong><span class="life-pill" title="Component life / reference SMU">${life}</span></div>${donePill}${elements}${action}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line">${sample}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trend||'<span class="value-line"></span>'}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line">${wo}</span></div></div></div>`;
+  // Bind a slot only on ENGINE. It can be updated after the slow independent CSV fetch
+  // without rebuilding the entire fleet matrix or changing normal/critical classifications.
+  const oilSlot=componentName==='ENGINE'&&assetId
+    ?`<div class="engine-oil-slot" data-asset="${escapeHtml(assetId)}">${engineOilAlertHtml(assetId)}</div>`:'';
+  return `<div class="health-card ${cls} ${dim?'opacity-25 grayscale':''}" ${isPlaceholder?'data-not-monitored="true" title="No source record (visual Normal placeholder only)"':`title="${escapeHtml(item.action)}"`}><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${severity}</strong><span class="life-pill" title="Component life / reference SMU">${life}</span></div>${donePill}${oilSlot}${elements}${action}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line">${sample}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trend||'<span class="value-line"></span>'}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line">${wo}</span></div></div></div>`;
 }
 function renderTable(data,components){
   const generation=++matrixRenderGeneration;
@@ -642,7 +664,7 @@ function renderTable(data,components){
     for(let i=start;i<end;i++){
       const unit=data[i];
       const referenceSmu=getAssetReferenceSmu(unit);
-      html+=`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,referenceSmu)}</td>`).join('')}</tr>`;
+      html+=`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,referenceSmu,unit.assetId,comp)}</td>`).join('')}</tr>`;
     }
     if(start===0)body.innerHTML=html;else body.insertAdjacentHTML('beforeend',html);
     if(end<data.length)requestAnimationFrame(()=>addBatch(end));
@@ -659,7 +681,7 @@ function openAssetDetail(assetId){
   const components=getSortedComponents(asset.model);
   document.getElementById('modal-components-grid').innerHTML=components.map(name=>{
     const cd=asset.components[name];
-    return `<div class="rounded-xl border border-slate-700/40 p-2 flex flex-col gap-2"><strong class="text-[11px] theme-text-sub uppercase">${escapeHtml(name)}</strong>${buildCard(cd,false,referenceSmu)}${cd&&cd.action&&cd.action!=='-'?`<div class="text-[10px] theme-text-sub px-1">Action: ${escapeHtml(cd.action)}</div>`:''}</div>`;
+    return `<div class="rounded-xl border border-slate-700/40 p-2 flex flex-col gap-2"><strong class="text-[11px] theme-text-sub uppercase">${escapeHtml(name)}</strong>${buildCard(cd,false,referenceSmu,asset.assetId,name)}${cd&&cd.action&&cd.action!=='-'?`<div class="text-[10px] theme-text-sub px-1">Action: ${escapeHtml(cd.action)}</div>`:''}</div>`;
   }).join('');
   showModal('asset-modal');
 }
@@ -680,6 +702,67 @@ function findLubeColumns(rows){
   return cols.equip&&cols.date&&cols.oil&&cols.quantity?cols:null;
 }
 function normalizeEquipNo(value){return safeText(value).toUpperCase().replace(/[\s\-_.]/g,'');}
+// Exact oil family matching, tolerant of differences in spaces, dashes and capitalization.
+function normalizeOilName(name){return safeText(name).toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function engineOilDateWindow(now=new Date()){
+  // Seven inclusive local calendar days: today plus the six preceding dates.
+  const today=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+  const first=today-(ENGINE_OIL_WINDOW_DAYS-1)*86400000;
+  return {today,first,dayKey:new Date(today).toISOString().slice(0,10)};
+}
+function computeEngineOilAlerts(rows,now=new Date()){
+  const alerts=new Map(),cols=findLubeColumns(rows);
+  if(!cols)return alerts;
+  const {today,first}=engineOilDateWindow(now);
+  for(const r of rows){
+    if(normalizeOilName(r[cols.oil])!==ENGINE_OIL_TYPE_KEY)continue;
+    const equip=normalizeEquipNo(r[cols.equip]);if(!equip)continue;
+    const day=parseLubeDate(r[cols.date]);if(!day||day<first||day>today)continue;
+    const qty=lubeNumeric(r[cols.quantity]);
+    if(!Number.isFinite(qty)||qty<=0)continue; // Blank/invalid/non-top-up quantity is not an event.
+    if(!alerts.has(equip))alerts.set(equip,{count:0,liters:0,records:[]});
+    const entry=alerts.get(equip);entry.count++;entry.liters+=qty;entry.records.push(r);
+  }
+  for(const [equip,entry] of alerts)if(entry.count<ENGINE_OIL_MIN_EVENTS)alerts.delete(equip);
+  return alerts;
+}
+function engineOilAlertHtml(assetId){
+  const alert=engineOilAlerts.get(normalizeEquipNo(assetId));if(!alert)return '';
+  const qty=lubeFmtQty(alert.liters);
+  const stale=engineOilLastAlertSource==='cached';
+  return `<button type="button" class="engine-oil-alert" data-asset="${escapeHtml(assetId)}" data-stale="${stale}" onclick="openEngineOilAlert(this.dataset.asset)" title="${alert.count} Shell Rimula R4 X 15W40 top-ups in the last 7 days (${qty} L). Click for detailed top-up history."><strong>🛢 ${alert.count}× top-up / 7 days</strong><small>Rimula R4 X 15W40 · ${escapeHtml(qty)} L${stale?' · cached':''}</small></button>`;
+}
+function updateEngineOilIndicators(){
+  for(const slot of document.querySelectorAll('.engine-oil-slot[data-asset]'))slot.innerHTML=engineOilAlertHtml(slot.dataset.asset);
+  const hasRelevantAlert=globalFleetData.some(a=>engineOilAlerts.has(normalizeEquipNo(a.assetId)));
+  const hasEngineColumn=!!document.querySelector('#matrix-head th[data-component="ENGINE"]');
+  // If the first alert creates an ENGINE column for a model that had no ENGINE SOS samples,
+  // only then rebuild the table structure; the common case updates a few DOM slots.
+  if(hasRelevantAlert&&!hasEngineColumn&&globalFleetData.length)renderTable(getVisibleRows(),getSortedComponents(currentSelectedModel));
+}
+function setEngineOilStatus(kind='checking'){
+  engineOilLastAlertSource=kind;
+  const el=document.getElementById('engine-oil-source-state');if(!el)return;
+  const count=[...engineOilAlerts.keys()].filter(k=>globalFleetData.some(u=>normalizeEquipNo(u.assetId)===k)).length;
+  const detail=kind==='live'?'Live Google Sheets':kind==='cached'?'Cached data (checking for updates)'
+    :kind==='unavailable'?'Source unavailable; no current alerts can be confirmed':'Checking Daily Lube Top Up…';
+  el.textContent=`🛢 Engine oil top-up alerts (last 7 days): ${kind==='unavailable'?'—':count+' unit'+(count===1?'':'s')} · ${detail}`;
+  el.className='mb-5 px-1 text-[11px] '+(kind==='unavailable'?'text-rose-400':kind==='checking'?'text-amber-400':'theme-text-sub');
+}
+function rebuildEngineOilAlerts(source='cached'){
+  engineOilAlerts=computeEngineOilAlerts(lubeRowsGlobal);
+  engineOilWindowDay=engineOilDateWindow().dayKey;
+  setEngineOilStatus(source);
+  updateEngineOilIndicators();
+}
+async function openEngineOilAlert(assetId){
+  openAssetDetail(assetId);
+  await openLubeTopUpFromModal();
+  // Focus the relevant oil type in the existing history view, no new fetch needed.
+  const filter=document.getElementById('lube-oil-filter');
+  const option=[...filter.options].find(opt=>normalizeOilName(opt.textContent)===ENGINE_OIL_TYPE_KEY);
+  if(option){filter.value=option.value;renderLubeTopUp();}
+}
 function parseLubeDate(value){
   const s=safeText(value);
   let match=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
@@ -764,6 +847,7 @@ function hydrateLubeCache(){
   if(Array.isArray(cached)&&findLubeColumns(cached)){
     lubeRowsGlobal=cached;
     lubeLastSyncedAt=Date.parse(safeLocalGet('smartfleet_lube_synced_at')||'')||0;
+    rebuildEngineOilAlerts('cached');
   }
 }
 async function fetchLubeData(force=false){
@@ -775,6 +859,7 @@ async function fetchLubeData(force=false){
       const rows=await fetchCsv(lubeUrlData,{force,validate:rows=>!!findLubeColumns(rows)});
       lubeRowsGlobal=rows;lubeColumns=findLubeColumns(rows);
       lubeLastSyncedAt=Date.now();lubeLastError=null;
+      rebuildEngineOilAlerts('live');
       deferCacheWrite('smartfleet_lube_csv',rows);
       try{localStorage.setItem('smartfleet_lube_synced_at',new Date(lubeLastSyncedAt).toISOString())}catch(e){}
       setLubeSourceState(`Live top-up data · Last synced ${new Date(lubeLastSyncedAt).toLocaleString()} · ${rows.length} source rows`);
@@ -783,6 +868,7 @@ async function fetchLubeData(force=false){
     }catch(e){
       lubeLastError=e;
       hydrateLubeCache();
+      if(lubeRowsGlobal.length)rebuildEngineOilAlerts('cached');else rebuildEngineOilAlerts('unavailable');
       setLubeSourceState(lubeRowsGlobal.length?'⚠ Google Sheets unavailable; showing cached top-up data.':'⚠ Could not load top-up CSV. Check published URL and required column headers.','error');
       if(!lubeRowsGlobal.length)document.getElementById('lube-table-body').innerHTML='<tr><td colspan="4" class="p-6 text-center text-rose-400">Top-up data unavailable. Click Refresh to retry.</td></tr>';
       else if(!document.getElementById('lube-modal').classList.contains('hidden'))updateLubeAssetView();
@@ -1059,8 +1145,12 @@ async function fetchAllData(forceRefresh=true){
       document.getElementById('matrix-body').innerHTML='<tr><td class="p-8 text-center" colspan="20">Unable to reach Google Sheets. Check the published CSV link and connection.</td></tr>';
       notify(e.message||'Data unavailable');
     }
-  }finally{btn.disabled=false;syncing=false;}
-  // AMT history now loads on demand; it does not consume network during main sync.
+  }finally{
+    btn.disabled=false;syncing=false;
+    // Do not block the main dashboard while checking the second source.
+    if(forceRefresh)setTimeout(()=>fetchLubeData(true),0);
+  }
+  // AMT history remains on demand; engine oil source refreshes independently.
 }
 function makeRowsForExport(assets){
   const rows=[];for(const asset of assets)for(const [name,c] of Object.entries(asset.components))rows.push([asset.assetId,asset.model,asset.serialNo,name,c.status,c.life,c.elements,c.action,c.sosDate,c.trend,c.workOrder,isWorkOrderDone(c.workOrder)?'Done':'',c.rawStatus]);
@@ -1126,7 +1216,18 @@ function initUi(){
   document.getElementById('sort-filter').addEventListener('change',e=>{currentSort=e.target.value;updateAllViews()});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!document.getElementById('lube-modal').classList.contains('hidden'))closeLubeModal();else if(!document.getElementById('amt-modal').classList.contains('hidden'))closeAmtModal();else closeAssetModal();}});
   document.querySelectorAll('#asset-modal,#amt-modal,#lube-modal').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal){if(modal.id==='amt-modal')closeAmtModal();else if(modal.id==='lube-modal')closeLubeModal();else closeAssetModal()}}));
-  initPwa();fetchAllData(false);
+  initPwa();
+  hydrateLubeCache();
+  if(!lubeRowsGlobal.length)setEngineOilStatus('checking');
+  // Keep primary SOS data first. Fetch oil history only after main dashboard sync completes.
+  fetchAllData(false).finally(()=>{
+    if(!lubeRowsGlobal.length||Date.now()-lubeLastSyncedAt>LUBE_CACHE_TTL_MS)fetchLubeData(false);
+    else setEngineOilStatus('cached');
+  });
+  // Refresh the calendar window if a wallboard stays open past midnight.
+  setInterval(()=>{
+    if(lubeRowsGlobal.length&&engineOilWindowDay!==engineOilDateWindow().dayKey)rebuildEngineOilAlerts(engineOilLastAlertSource==='live'?'live':'cached');
+  },60000);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initUi);else initUi();
 </script>
