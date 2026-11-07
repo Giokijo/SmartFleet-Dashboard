@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartFleet · Condition Monitoring</title>
+    <title>Health Fleet-Condition Monitoring</title>
     <!-- Progressive Web App: desktop + mobile -->
     <meta name="theme-color" content="#020617">
     <meta name="application-name" content="Fleet Health">
@@ -69,11 +69,11 @@
     .small-component:focus-visible {outline:2px solid #38bdf8;outline-offset:2px}
     #sync-status {white-space:nowrap}
     #toast {position:fixed;right:16px;bottom:18px;z-index:90;max-width:min(440px,calc(100vw - 32px));padding:12px 16px;border-radius:12px;color:#fff;background:#18304e;border:1px solid #3b82f6;box-shadow:0 18px 46px rgba(0,0,0,.45);font-size:12px}
-    #toast[hidden] {display:none!important}
+    #toast[hidden], .hidden {display:none!important}
     .no-scrollbar::-webkit-scrollbar {height:5px}
     .no-scrollbar::-webkit-scrollbar-thumb {background:rgba(148,163,184,.3);border-radius:10px}
     .muted-status {color:var(--text-sub)}
-    [hidden] {display:none!important}
+    [hidden], .hidden {display:none!important}
     @media (max-width:640px) {.table-container{max-height:66vh}.summary-metric{min-height:77px;padding:11px}.summary-number{font-size:21px}.comp-cell{width:184px;min-width:184px;max-width:184px}.health-card{padding:8px}}
     @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
     </style>
@@ -91,7 +91,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.2 · Fast Sync · SMU-linked normal tiles & WO Done highlighting</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.3 · Fast Sync · Lube Top Up History</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -203,9 +203,11 @@
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Model / Type</span><span id="modal-model" class="font-bold text-xs">-</span></div>
                     <div>
                         <span class="text-slate-400 block text-[9px] uppercase font-semibold">Serial Number (S/N)</span>
-                        <button onclick="openAmtHistoryFromModal()" class="text-blue-400 hover:text-blue-300 underline font-mono font-extrabold text-xs flex items-center gap-1 cursor-pointer" title="Click to view AMT Maintenance History">
-                            <span id="modal-serial">-</span> <span class="text-[9px] bg-blue-900/60 px-1 py-0.2 rounded border border-blue-700">🛠️ AMT History</span>
-                        </button>
+                        <span id="modal-serial" class="block text-blue-400 font-mono font-extrabold text-xs">-</span>
+                        <div class="flex flex-wrap gap-1.5 mt-2" aria-label="Asset history shortcuts">
+                            <button type="button" onclick="openAmtHistoryFromModal()" class="glass-button inline-flex items-center gap-1 bg-blue-900/60 hover:bg-blue-800/80 text-blue-200 border border-blue-700 rounded-lg px-2 py-1.5 font-semibold text-[10px]" title="View AMT maintenance history">🛠️ AMT History</button>
+                            <button type="button" onclick="openLubeTopUpFromModal()" class="glass-button inline-flex items-center gap-1 bg-amber-900/40 hover:bg-amber-800/70 text-amber-200 border border-amber-700 rounded-lg px-2 py-1.5 font-semibold text-[10px]" title="View lubrication top-up records for this equipment">🛢️ Lube Top Up</button>
+                        </div>
                     </div>
                     <div><span class="text-slate-400 block text-[9px] uppercase font-semibold">Service Meter Unit</span><span id="modal-smu" class="font-mono font-bold text-xs text-amber-400">-</span></div>
                 </div>
@@ -264,9 +266,51 @@
         </div>
     </div>
 
+    <!-- MODAL 3: LUBE TOP-UP HISTORY (LAZY GOOGLE SHEETS CSV) -->
+    <div id="lube-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="lube-modal-title">
+        <div class="theme-card w-full max-w-6xl rounded-2xl border shadow-2xl p-4 sm:p-6 max-h-[95vh] overflow-y-auto relative flex flex-col">
+            <div class="flex flex-wrap justify-between items-start sm:items-center gap-3 pb-4 mb-4 border-b border-slate-700">
+                <div>
+                    <h2 id="lube-modal-title" class="text-sm font-bold text-amber-400 uppercase tracking-wider">🛢️ Daily Lube Top Up History</h2>
+                    <p class="text-[11px] theme-text-sub mt-1" id="lube-modal-subtitle">Select an asset to view its top-up records.</p>
+                    <p id="lube-source-state" class="text-[10px] theme-text-sub mt-1" role="status" aria-live="polite">Source: published Google Sheets CSV</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" id="lube-refresh-btn" onclick="refreshLubeTopUp()" class="glass-button bg-blue-700 hover:bg-blue-600 text-white font-semibold text-xs px-3 py-2 rounded-xl">↻ Refresh</button>
+                    <button type="button" onclick="exportLubeTopUpCsv()" class="glass-button bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-xs px-3 py-2 rounded-xl">↓ Export CSV</button>
+                    <button type="button" onclick="closeLubeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">✕ Close</button>
+                </div>
+            </div>
+            <div id="lube-summary" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4"></div>
+            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                <label for="lube-search" class="sr-only">Search top-up records</label>
+                <input type="search" id="lube-search" oninput="renderLubeTopUp()" class="filter-control flex-1 min-w-[180px]" placeholder="Search date, oil type, remark..." autocomplete="off">
+                <label for="lube-oil-filter" class="sr-only">Filter oil type</label>
+                <select id="lube-oil-filter" onchange="renderLubeTopUp()" class="filter-control min-w-[170px]"><option value="ALL">All oil types</option></select>
+                <span id="lube-record-count" class="text-[11px] theme-text-sub font-mono">0 records</span>
+            </div>
+            <div class="table-container rounded-xl border border-slate-700/60" style="max-height:55vh">
+                <table class="w-full text-left text-xs border-collapse" aria-label="Daily Lube Top Up for selected asset">
+                    <thead class="uppercase text-[10px] tracking-wider">
+                        <tr>
+                            <th class="p-3 min-w-[110px]">Date</th>
+                            <th class="p-3 min-w-[220px]">Oil Type</th>
+                            <th class="p-3 text-right min-w-[100px]">Quantity</th>
+                            <th class="p-3 min-w-[290px]">Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lube-table-body" class="divide-y divide-slate-700/40">
+                        <tr><td colspan="4" class="p-6 text-center theme-text-sub">No asset selected.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-[10px] theme-text-sub mt-3">Quantities are displayed in the source units. Totals are grouped by oil type; different lubricants are not combined. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
+        </div>
+    </div>
+
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.2 · Fast Sync · Condition monitoring · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.3 · Fast Sync · Condition & Lube Top Up · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -274,6 +318,10 @@
 "use strict";
 const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv";
 const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmjG03oV3wiaLMa-uLWYwfLbPEdZRIcwYwWvWGTLvj_aZg6-f-seh-OQ/pub?output=csv";
+const lubeUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv";
+const LUBE_CACHE_TTL_MS = 120000; // Only check Google Sheets when Lube Top Up is opened; short-lived in-memory reuse.
+let lubeRowsGlobal = [], lubeColumns = null, activeLubeRecords = [], lubeLastSyncedAt = 0, lubeInFlight = null, lubeLastError = null;
+
 const preferredComponentOrder = ["ENGINE","TORQUE CONVERTER","TRANSMISSION","DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT","FINAL DRIVE FRONT RIGHT","WHEEL BEARINGS FRONT LEFT","WHEEL BEARINGS FRONT RIGHT","DIFFERENTIAL REAR","FINAL DRIVE REAR LEFT","FINAL DRIVE REAR RIGHT","TANDEM LEFT","TANDEM RIGHT","PUMP DRIVE","SWING DRIVE LEFT","SWING DRIVE RIGHT","STEERING SYSTEM","HYDRAULIC SYSTEM","RADIATOR","VIMS","PRODUCT LINK"];
 let rawRowsGlobal = [], globalFleetData = [], amtRowsGlobal = [];
 let allUniqueModels = new Set();
@@ -616,8 +664,167 @@ function openAssetDetail(assetId){
   showModal('asset-modal');
 }
 function showModal(id){document.getElementById(id).classList.remove('hidden');document.body.style.overflow='hidden'}
-function closeAssetModal(){document.getElementById('asset-modal').classList.add('hidden');if(document.getElementById('amt-modal').classList.contains('hidden'))document.body.style.overflow=''}
-function closeAmtModal(){document.getElementById('amt-modal').classList.add('hidden');if(document.getElementById('asset-modal').classList.contains('hidden'))document.body.style.overflow=''}
+function closeAssetModal(){document.getElementById('asset-modal').classList.add('hidden');if(document.getElementById('amt-modal').classList.contains('hidden')&&document.getElementById('lube-modal').classList.contains('hidden'))document.body.style.overflow=''}
+function closeAmtModal(){document.getElementById('amt-modal').classList.add('hidden');if(document.getElementById('asset-modal').classList.contains('hidden')&&document.getElementById('lube-modal').classList.contains('hidden'))document.body.style.overflow=''}
+// Lube top-up is loaded only when requested; main fleet sync and AMT history are unchanged.
+function findLubeColumns(rows){
+  if(!Array.isArray(rows)||!rows.length)return null;
+  const keys=Object.keys(rows[0]);
+  const cols={
+    equip:chooseColumn(keys,['Equip No','Equip No.','Equipment No','Equipment Number','Asset ID','Equip ID'],[/^equip.*no/i,/^equipment.*(no|id)/i,/^asset.*id/i,/^unit.*(no|id)/i]),
+    date:chooseColumn(keys,['date','Top Up Date','Top-up Date'],[/^date$/i,/top.?up.*date/i,/^tanggal$/i]),
+    oil:chooseColumn(keys,['Oil type','Oil Type','Lubricant Type','Oil'],[/oil.*type/i,/lubricant/i,/oil.*name/i]),
+    quantity:chooseColumn(keys,['quantity oil','Quantity Oil','Quantity','Qty','Top Up Qty'],[/quantity.*oil/i,/oil.*quantity/i,/^qty/i,/quantity/i]),
+    remark:chooseColumn(keys,['remark','Remarks','Notes','Comment'],[/remark/i,/notes?/i,/comment/i])
+  };
+  return cols.equip&&cols.date&&cols.oil&&cols.quantity?cols:null;
+}
+function normalizeEquipNo(value){return safeText(value).toUpperCase().replace(/[\s\-_.]/g,'');}
+function parseLubeDate(value){
+  const s=safeText(value);
+  let match=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if(match)return Date.UTC(+match[1],+match[2]-1,+match[3]);
+  match=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if(match){
+    const a=+match[1],b=+match[2],y=+match[3];
+    // Prefer day/month/year on ambiguous dates; infer month/day only when second item > 12.
+    const day=b>12?b:a,month=b>12?a:b;
+    if(month>=1&&month<=12&&day>=1&&day<=31)return Date.UTC(y,month-1,day);
+  }
+  const fallback=Date.parse(s);return Number.isFinite(fallback)?fallback:0;
+}
+function lubeNumeric(value){return parseMeterValue(safeText(value));}
+function lubeFmtQty(value){
+  const num=lubeNumeric(value);
+  return Number.isFinite(num)?num.toLocaleString('en-US',{maximumFractionDigits:3}):safeText(value)||'-';
+}
+function setLubeSourceState(text,kind='ready'){
+  const el=document.getElementById('lube-source-state');el.textContent=text;
+  el.className='text-[10px] mt-1 '+(kind==='error'?'text-rose-400':kind==='loading'?'text-amber-400':'theme-text-sub');
+}
+function selectLubeRecords(){
+  const asset=activeModalAsset;
+  lubeColumns=findLubeColumns(lubeRowsGlobal);
+  if(!asset||!lubeColumns){activeLubeRecords=[];return;}
+  const id=normalizeEquipNo(asset.assetId);
+  activeLubeRecords=lubeRowsGlobal.filter(r=>normalizeEquipNo(r[lubeColumns.equip])===id)
+    .sort((a,b)=>parseLubeDate(b[lubeColumns.date])-parseLubeDate(a[lubeColumns.date]));
+}
+function renderLubeTopUp(){
+  const body=document.getElementById('lube-table-body');
+  if(!activeModalAsset)return;
+  const filter=document.getElementById('lube-oil-filter');
+  const q=safeText(document.getElementById('lube-search').value).toLowerCase();
+  const cols=lubeColumns;
+  if(!cols){
+    body.innerHTML='<tr><td colspan="4" class="p-6 text-center theme-text-sub">No top-up data loaded yet. Use Refresh to retrieve the published CSV.</td></tr>';
+    document.getElementById('lube-summary').innerHTML='';
+    document.getElementById('lube-record-count').textContent='0 records';return;
+  }
+  const byType=new Map();
+  for(const r of activeLubeRecords){
+    const label=safeText(r[cols.oil])||'Unspecified';
+    const key=label.toUpperCase();
+    if(!byType.has(key))byType.set(key,{label,total:0,count:0});
+    const entry=byType.get(key);entry.count++;
+    const number=lubeNumeric(r[cols.quantity]);if(Number.isFinite(number))entry.total+=number;
+  }
+  const selected=filter.value;
+  const labels=[...byType.keys()].sort();
+  filter.innerHTML='<option value="ALL">All oil types</option>'+labels.map(key=>`<option value="${escapeHtml(key)}">${escapeHtml(byType.get(key).label)}</option>`).join('');
+  filter.value=labels.includes(selected)?selected:'ALL';
+  const visible=activeLubeRecords.filter(r=>{
+    if(filter.value!=='ALL'&&(safeText(r[cols.oil])||'Unspecified').toUpperCase()!==filter.value)return false;
+    return !q||[cols.date,cols.oil,cols.quantity,cols.remark,cols.equip].filter(Boolean).some(k=>safeText(r[k]).toLowerCase().includes(q));
+  });
+  document.getElementById('lube-record-count').textContent=`${visible.length} of ${activeLubeRecords.length} records`;
+  const summary=[...byType.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label));
+  document.getElementById('lube-summary').innerHTML=summary.length?summary.map(v=>
+    `<div class="summary-metric"><div class="theme-text-sub text-[10px] font-semibold truncate" title="${escapeHtml(v.label)}">${escapeHtml(v.label)}</div><div class="summary-number text-[20px] text-amber-300 mt-1">${lubeFmtQty(v.total)}</div><div class="text-[10px] theme-text-sub">${v.count} top-up record${v.count!==1?'s':''}</div></div>`).join('')
+    :'<div class="col-span-full text-xs theme-text-sub bg-slate-800/30 rounded-xl p-3">No top-up records for this equipment in the published source.</div>';
+  if(!visible.length){
+    body.innerHTML=`<tr><td colspan="4" class="p-6 text-center theme-text-sub">${activeLubeRecords.length?'No top-up records match these filters.':'No recorded top-up for this unit.'}</td></tr>`;return;
+  }
+  body.innerHTML=visible.map(r=>{
+    const date=safeText(r[cols.date])||'-',oil=safeText(r[cols.oil])||'-',qty=lubeFmtQty(r[cols.quantity]);
+    const remark=safeText(cols.remark&&r[cols.remark]);
+    const note=remark?`<details class="group"><summary class="cursor-pointer text-sky-300 hover:text-sky-200 font-medium">${escapeHtml(remark.replace(/\s+/g,' ').slice(0,95))}${remark.length>95?'…':''}</summary><div class="mt-2 p-2 rounded-lg bg-slate-800/60 text-slate-200 whitespace-pre-wrap break-words text-[11px]">${escapeHtml(remark)}</div></details>`:'<span class="theme-text-sub">—</span>';
+    return `<tr class="hover:bg-slate-800/40 border-b border-slate-700/30"><td class="p-3 font-mono text-slate-200 whitespace-nowrap">${escapeHtml(date)}</td><td class="p-3 text-slate-200 font-semibold">${escapeHtml(oil)}</td><td class="p-3 text-right font-bold font-mono text-amber-300">${escapeHtml(qty)}</td><td class="p-3 text-slate-200 max-w-[490px]">${note}</td></tr>`;
+  }).join('');
+}
+function updateLubeAssetView(){
+  if(!activeModalAsset)return;
+  const asset=activeModalAsset;
+  document.getElementById('lube-modal-subtitle').textContent=`Equipment: ${asset.assetId} | ${asset.model} | S/N: ${asset.serialNo}`;
+  selectLubeRecords();renderLubeTopUp();
+}
+function hydrateLubeCache(){
+  if(lubeRowsGlobal.length)return;
+  const cached=cachedGet('smartfleet_lube_csv');
+  if(Array.isArray(cached)&&findLubeColumns(cached)){
+    lubeRowsGlobal=cached;
+    lubeLastSyncedAt=Date.parse(safeLocalGet('smartfleet_lube_synced_at')||'')||0;
+  }
+}
+async function fetchLubeData(force=false){
+  if(lubeInFlight)return lubeInFlight;
+  const btn=document.getElementById('lube-refresh-btn');btn.disabled=true;
+  setLubeSourceState('Checking published Daily Lube Top Up CSV...', 'loading');
+  lubeInFlight=(async()=>{
+    try{
+      const rows=await fetchCsv(lubeUrlData,{force,validate:rows=>!!findLubeColumns(rows)});
+      lubeRowsGlobal=rows;lubeColumns=findLubeColumns(rows);
+      lubeLastSyncedAt=Date.now();lubeLastError=null;
+      deferCacheWrite('smartfleet_lube_csv',rows);
+      try{localStorage.setItem('smartfleet_lube_synced_at',new Date(lubeLastSyncedAt).toISOString())}catch(e){}
+      setLubeSourceState(`Live top-up data · Last synced ${new Date(lubeLastSyncedAt).toLocaleString()} · ${rows.length} source rows`);
+      if(!document.getElementById('lube-modal').classList.contains('hidden'))updateLubeAssetView();
+      return true;
+    }catch(e){
+      lubeLastError=e;
+      hydrateLubeCache();
+      setLubeSourceState(lubeRowsGlobal.length?'⚠ Google Sheets unavailable; showing cached top-up data.':'⚠ Could not load top-up CSV. Check published URL and required column headers.','error');
+      if(!lubeRowsGlobal.length)document.getElementById('lube-table-body').innerHTML='<tr><td colspan="4" class="p-6 text-center text-rose-400">Top-up data unavailable. Click Refresh to retry.</td></tr>';
+      else if(!document.getElementById('lube-modal').classList.contains('hidden'))updateLubeAssetView();
+      return false;
+    }finally{btn.disabled=false;lubeInFlight=null;}
+  })();
+  return lubeInFlight;
+}
+async function openLubeTopUpFromModal(){
+  if(!activeModalAsset)return;
+  document.getElementById('lube-search').value='';
+  document.getElementById('lube-oil-filter').value='ALL';
+  hydrateLubeCache();
+  showModal('lube-modal');
+  updateLubeAssetView();
+  if(lubeRowsGlobal.length&&lubeLastSyncedAt){
+    setLubeSourceState(`Stored top-up data · Last synced ${new Date(lubeLastSyncedAt).toLocaleString()}`);
+  }
+  if(!lubeRowsGlobal.length||Date.now()-lubeLastSyncedAt>LUBE_CACHE_TTL_MS)await fetchLubeData(false);
+}
+function refreshLubeTopUp(){return fetchLubeData(true);}
+function closeLubeModal(){
+  document.getElementById('lube-modal').classList.add('hidden');
+  const otherOpen=['asset-modal','amt-modal'].some(id=>!document.getElementById(id).classList.contains('hidden'));
+  if(!otherOpen)document.body.style.overflow='';
+}
+function exportLubeTopUpCsv(){
+  if(!activeModalAsset||!lubeColumns||!activeLubeRecords.length){notify('No top-up rows for this equipment to export.');return;}
+  const c=lubeColumns,q=safeText(document.getElementById('lube-search').value).toLowerCase();
+  const oil=document.getElementById('lube-oil-filter').value;
+  const filtered=activeLubeRecords.filter(r=>
+    (oil==='ALL'||(safeText(r[c.oil])||'Unspecified').toUpperCase()===oil)&&
+    (!q||[c.date,c.oil,c.quantity,c.remark,c.equip].filter(Boolean).some(k=>safeText(r[k]).toLowerCase().includes(q)))
+  );
+  if(!filtered.length){notify('No matching records to export.');return;}
+  const csvCell=(v)=>'"'+excelSafe(safeText(v)).replace(/"/g,'""')+'"';
+  const records=[['Equip No','date','Oil type','quantity oil','remark'],...filtered.map(r=>[r[c.equip],r[c.date],r[c.oil],r[c.quantity],c.remark?r[c.remark]:''])];
+  const csv='\uFEFF'+records.map(row=>row.map(csvCell).join(',')).join('\r\n');
+  downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),`Lube_Top_Up_${activeModalAsset.assetId}.csv`);
+  notify(`Exported ${filtered.length} top-up records.`);
+}
+
 function findAmtColumns(rows){
   if(!rows?.length)return null;const keys=Object.keys(rows[0]);return {
     asset:chooseColumn(keys,['Asset ID','Equipment ID'],[/asset.*id/i,/equipment/i,/^unit/i]),
@@ -917,8 +1124,8 @@ function initUi(){
   document.getElementById('asset-search').addEventListener('input',e=>{currentSearch=e.target.value.trim();clearTimeout(searchInputTimer);searchInputTimer=setTimeout(updateAllViews,150)});
   document.getElementById('health-filter').addEventListener('change',e=>filterByStatus(e.target.value));
   document.getElementById('sort-filter').addEventListener('change',e=>{currentSort=e.target.value;updateAllViews()});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAmtModal();closeAssetModal();}});
-  document.querySelectorAll('#asset-modal,#amt-modal').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal){if(modal.id==='amt-modal')closeAmtModal();else closeAssetModal()}}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!document.getElementById('lube-modal').classList.contains('hidden'))closeLubeModal();else if(!document.getElementById('amt-modal').classList.contains('hidden'))closeAmtModal();else closeAssetModal();}});
+  document.querySelectorAll('#asset-modal,#amt-modal,#lube-modal').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal){if(modal.id==='amt-modal')closeAmtModal();else if(modal.id==='lube-modal')closeLubeModal();else closeAssetModal()}}));
   initPwa();fetchAllData(false);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initUi);else initUi();
