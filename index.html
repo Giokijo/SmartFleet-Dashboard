@@ -54,6 +54,14 @@
     .engine-oil-alert small {display:block;font-size:9px;font-weight:600;opacity:.9;margin-top:3px;overflow-wrap:anywhere}
     .engine-oil-alert strong {display:block;font-size:10px;font-weight:800}
     .engine-oil-alert[data-stale="true"] {border-style:dashed}
+    .engine-oil-alert[data-result="acceptable"] {background:linear-gradient(110deg,#ecfdf5,#bbf7d0);border-color:#059669;color:#064e3b}
+    .engine-oil-alert[data-result="above"] {background:linear-gradient(110deg,#fff1f2,#fecaca);border-color:#dc2626;color:#7f1d1d}
+    .engine-oil-alert[data-result="unavailable"] {background:linear-gradient(110deg,#fff7ed,#fde68a);border-color:#d97706;color:#78350f}
+    .engine-oil-ratio {display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin-top:5px;font-weight:900;font-size:11px}
+    .engine-oil-result {display:inline-block;border-radius:4px;padding:2px 4px;font-size:9px;font-weight:900;background:rgba(255,255,255,.72)}
+    .engine-oil-alert[data-result="above"] .engine-oil-result {color:#991b1b}
+    .engine-oil-alert[data-result="acceptable"] .engine-oil-result {color:#065f46}
+    .engine-oil-alert[data-result="unavailable"] .engine-oil-result {color:#92400e}
     .comp-cell {width:196px;min-width:196px;max-width:196px}
     .table-container {max-height:min(70vh,850px);overflow:auto;overscroll-behavior:contain;position:relative;scrollbar-color:#64748b transparent;scrollbar-width:thin}
     thead th {position:sticky;top:0;z-index:20;background:var(--sticky-head)!important;box-shadow:inset 0 -1px 0 var(--border-color);color:var(--text-sub)}
@@ -101,7 +109,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.5 · Fast Sync · Lube Daily Rates</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.6 · Engine Oil / Fuel Ratio</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -293,6 +301,7 @@
                 </div>
             </div>
             <div id="lube-summary" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4"></div>
+            <div id="lube-engine-ratio" class="mb-4" aria-live="polite"></div>
             <div class="flex flex-wrap items-center gap-2.5 mb-3">
                 <label for="lube-search" class="sr-only">Search top-up records</label>
                 <input type="search" id="lube-search" oninput="renderLubeTopUp()" class="filter-control flex-1 min-w-[180px]" placeholder="Search date, oil type, remark..." autocomplete="off">
@@ -308,20 +317,23 @@
                             <th class="p-3 min-w-[220px]">Oil Type</th>
                             <th class="p-3 text-right min-w-[100px]">Quantity</th>
                             <th class="p-3 min-w-[290px]">Remark</th>
+                            <th class="p-3 text-right min-w-[120px]">Hour Meter (h)</th>
+                            <th class="p-3 text-right min-w-[140px]">Fuel Burned (L)</th>
+                            <th class="p-3 text-right min-w-[140px]">Fuel Burn Rate (L/h)</th>
                         </tr>
                     </thead>
                     <tbody id="lube-table-body" class="divide-y divide-slate-700/40">
-                        <tr><td colspan="4" class="p-6 text-center theme-text-sub">No asset selected.</td></tr>
+                        <tr><td colspan="7" class="p-6 text-center theme-text-sub">No asset selected.</td></tr>
                     </tbody>
                 </table>
             </div>
-            <p class="text-[10px] theme-text-sub mt-3">Totals are grouped by oil type, without combining lubricants. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
+            <p class="text-[10px] theme-text-sub mt-3">Totals are grouped by oil type, without combining lubricants. Engine oil limit: maximum 1 L of Shell Rimula R4 X 15W40 per 240 L diesel burned, calculated over the last 7 calendar days using each equipment/date fuel figure once. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
         </div>
     </div>
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.5 · Fast Sync · Condition, Lube History & Engine Oil Alerts · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.6 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -335,6 +347,10 @@ let lubeRowsGlobal = [], lubeColumns = null, activeLubeRecords = [], lubeLastSyn
 const ENGINE_OIL_TYPE_KEY = 'SHELLRIMULAR4X15W40';
 const ENGINE_OIL_WINDOW_DAYS = 7;
 const ENGINE_OIL_MIN_EVENTS = 2;
+const ENGINE_OIL_LIMIT_L_PER_240_L_FUEL = 1;
+const ENGINE_OIL_DIESEL_BASIS_L = 240;
+const US_GALLON_TO_LITER = 3.785411784;
+const ENGINE_OIL_SITE_TIME_ZONE = "Africa/Abidjan";
 let engineOilAlerts = new Map(), engineOilWindowDay = '', engineOilLastAlertSource = 'checking';
 
 const preferredComponentOrder = ["ENGINE","TORQUE CONVERTER","TRANSMISSION","DIFFERENTIAL FRONT","FINAL DRIVE FRONT LEFT","FINAL DRIVE FRONT RIGHT","WHEEL BEARINGS FRONT LEFT","WHEEL BEARINGS FRONT RIGHT","DIFFERENTIAL REAR","FINAL DRIVE REAR LEFT","FINAL DRIVE REAR RIGHT","TANDEM LEFT","TANDEM RIGHT","PUMP DRIVE","SWING DRIVE LEFT","SWING DRIVE RIGHT","STEERING SYSTEM","HYDRAULIC SYSTEM","RADIATOR","VIMS","PRODUCT LINK"];
@@ -697,40 +713,95 @@ function findLubeColumns(rows){
     date:chooseColumn(keys,['date','Top Up Date','Top-up Date'],[/^date$/i,/top.?up.*date/i,/^tanggal$/i]),
     oil:chooseColumn(keys,['Oil type','Oil Type','Lubricant Type','Oil'],[/oil.*type/i,/lubricant/i,/oil.*name/i]),
     quantity:chooseColumn(keys,['quantity oil','Quantity Oil','Quantity','Qty','Top Up Qty'],[/quantity.*oil/i,/oil.*quantity/i,/^qty/i,/quantity/i]),
-    remark:chooseColumn(keys,['remark','Remarks','Notes','Comment'],[/remark/i,/notes?/i,/comment/i])
+    remark:chooseColumn(keys,['remark','Remarks','Notes','Comment'],[/remark/i,/notes?/i,/comment/i]),
+    hourMeter:chooseColumn(keys,['Hour Meter (Hours)','Hour Meter(Hours)','Hour Meter','SMU'],[/^hour.*meter/i,/^smu$/i]),
+    fuel:chooseColumn(keys,['Total Fuel Burned (L)','Total Fuel Burned (Liter)','Total Fuel Burned (Liters)','Total Fuel Burned (gal)','Total Fuel Burned (gallons)'],[/^total.*fuel.*burned/i,/^fuel.*burned/i]),
+    fuelRate:chooseColumn(keys,['Total Fuel Burn Rate (L/H)','Total Fuel Burn Rate (L/Hour)','Total Fuel Burn Rate (gal/Hour)','Fuel Burn Rate'],[/^total.*fuel.*burn.*rate/i,/^fuel.*burn.*rate/i])
   };
   return cols.equip&&cols.date&&cols.oil&&cols.quantity?cols:null;
 }
 function normalizeEquipNo(value){return safeText(value).toUpperCase().replace(/[\s\-_.]/g,'');}
+function normalizedFuelLiters(row,cols){
+  if(!cols || !cols.fuel)return NaN;
+  const n=lubeNumeric(row[cols.fuel]);
+  if(!Number.isFinite(n)||n<0)return NaN;
+  return /\bgal(?:lons?)?\b/i.test(cols.fuel) ? n*US_GALLON_TO_LITER : n;
+}
+function normalizedFuelRate(row,cols){
+  if(!cols || !cols.fuelRate)return NaN;
+  const n=lubeNumeric(row[cols.fuelRate]);
+  if(!Number.isFinite(n)||n<0)return NaN;
+  return /\bgal(?:lons?)?\b/i.test(cols.fuelRate) ? n*US_GALLON_TO_LITER : n;
+}
+function oilConsumptionStatus(ratio){
+  if(!Number.isFinite(ratio))return 'unavailable';
+  return ratio>ENGINE_OIL_LIMIT_L_PER_240_L_FUEL+1e-9?'above':'acceptable';
+}
+function formatOilRatio(value){return Number.isFinite(value)?value.toFixed(2):'N/A';}
 // Exact oil family matching, tolerant of differences in spaces, dashes and capitalization.
 function normalizeOilName(name){return safeText(name).toUpperCase().replace(/[^A-Z0-9]/g,'');}
 function engineOilDateWindow(now=new Date()){
-  // Seven inclusive local calendar days: today plus the six preceding dates.
-  const today=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+  // Site calendar days (Cote d'Ivoire) rather than the viewer browser time zone.
+  const parts=new Intl.DateTimeFormat('en-GB',{
+    timeZone:ENGINE_OIL_SITE_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(now);
+  const get=type=>Number(parts.find(p=>p.type===type)?.value);
+  const today=Date.UTC(get('year'),get('month')-1,get('day'));
   const first=today-(ENGINE_OIL_WINDOW_DAYS-1)*86400000;
   return {today,first,dayKey:new Date(today).toISOString().slice(0,10)};
 }
 function computeEngineOilAlerts(rows,now=new Date()){
   const alerts=new Map(),cols=findLubeColumns(rows);
   if(!cols)return alerts;
+  const fuelByUnitDay=new Map(), conflictingUnits=new Set();
   const {today,first}=engineOilDateWindow(now);
+  // Read EVERY equipment/date row for fuel. Rows without an oil top-up still count
+  // toward fuel burn. Multiple top-ups on one date must never multiply diesel burn.
   for(const r of rows){
-    if(normalizeOilName(r[cols.oil])!==ENGINE_OIL_TYPE_KEY)continue;
     const equip=normalizeEquipNo(r[cols.equip]);if(!equip)continue;
     const day=parseLubeDate(r[cols.date]);if(!day||day<first||day>today)continue;
+    const fuel=normalizedFuelLiters(r,cols);
+    if(Number.isFinite(fuel)){
+      if(!fuelByUnitDay.has(equip))fuelByUnitDay.set(equip,new Map());
+      const dates=fuelByUnitDay.get(equip);
+      const old=dates.get(day);
+      if(old===undefined)dates.set(day,fuel);
+      else if(Math.abs(old-fuel)>Math.max(.02,Math.max(old,fuel)*.00001)){
+        // Different daily values for the same unit/date are inconsistent. Keep
+        // the larger observation, never sum the duplicate or silently hide it.
+        dates.set(day,Math.max(old,fuel));conflictingUnits.add(equip);
+      }
+    }
+    if(normalizeOilName(r[cols.oil])!==ENGINE_OIL_TYPE_KEY)continue;
     const qty=lubeNumeric(r[cols.quantity]);
-    if(!Number.isFinite(qty)||qty<=0)continue; // Blank/invalid/non-top-up quantity is not an event.
+    if(!Number.isFinite(qty)||qty<=0)continue;
     if(!alerts.has(equip))alerts.set(equip,{count:0,liters:0,records:[]});
     const entry=alerts.get(equip);entry.count++;entry.liters+=qty;entry.records.push(r);
   }
-  for(const [equip,entry] of alerts)if(entry.count<ENGINE_OIL_MIN_EVENTS)alerts.delete(equip);
+  for(const [equip,entry] of alerts){
+    const daily=fuelByUnitDay.get(equip)||new Map();
+    entry.fuelLiters=[...daily.values()].reduce((sum,v)=>sum+v,0);
+    entry.fuelDays=daily.size;
+    entry.fuelConflicts=conflictingUnits.has(equip);
+    entry.ratio=entry.fuelLiters>0 ? entry.liters*ENGINE_OIL_DIESEL_BASIS_L/entry.fuelLiters : NaN;
+    entry.result=oilConsumptionStatus(entry.ratio);
+    entry.fuelColumnAvailable=!!cols.fuel;
+    // Keep the established repeated top-up threshold. Also highlight a single
+    // top-up if it ALREADY exceeds the explicit oil/fuel limit.
+    if(entry.count<ENGINE_OIL_MIN_EVENTS&&entry.result!=='above')alerts.delete(equip);
+  }
   return alerts;
 }
 function engineOilAlertHtml(assetId){
   const alert=engineOilAlerts.get(normalizeEquipNo(assetId));if(!alert)return '';
-  const qty=lubeFmtQty(alert.liters);
+  const qty=lubeFmtQty(alert.liters),fuel=lubeFmtQty(alert.fuelLiters);
   const stale=engineOilLastAlertSource==='cached';
-  return `<button type="button" class="engine-oil-alert" data-asset="${escapeHtml(assetId)}" data-stale="${stale}" onclick="openEngineOilAlert(this.dataset.asset)" title="${alert.count} Shell Rimula R4 X 15W40 top-ups in the last 7 days (${qty} L). Click for detailed top-up history."><strong>🛢 ${alert.count}× top-up / 7 days</strong><small>Rimula R4 X 15W40 · ${escapeHtml(qty)} L${stale?' · cached':''}</small></button>`;
+  const result=alert.fuelConflicts?'unavailable':alert.result;
+  const resultLabel=alert.fuelConflicts?'REVIEW FUEL DATA':result==='above'?'ABOVE LIMIT':result==='acceptable'?'ACCEPTABLE':'FUEL DATA UNAVAILABLE';
+  const ratioLabel=alert.fuelConflicts?'Inconsistent daily fuel records':Number.isFinite(alert.ratio)?`${formatOilRatio(alert.ratio)} L / 240 L diesel`:'Oil/fuel ratio unavailable';
+  const coverage=alert.fuelDays<ENGINE_OIL_WINDOW_DAYS?` · ${alert.fuelDays}/7 fuel days`:'';
+  const title=`${alert.count} top-ups in 7 days; ${qty} L Rimula oil; ${fuel} L diesel; ${ratioLabel}; ${resultLabel}. Select to view unit history.`;
+  return `<button type="button" class="engine-oil-alert" data-result="${result}" data-asset="${escapeHtml(assetId)}" data-stale="${stale}" onclick="openEngineOilAlert(this.dataset.asset)" title="${escapeHtml(title)}"><strong>\u{1F6E2} ${alert.count}× top-up / 7 days</strong><small>Shell Rimula R4 X 15W40 · ${escapeHtml(qty)} L oil</small><span class="engine-oil-ratio">${escapeHtml(ratioLabel)}</span><span class="engine-oil-result">${resultLabel}</span><small>${escapeHtml(fuel)} L diesel${coverage}${stale?' · cached':''}</small></button>`;
 }
 function updateEngineOilIndicators(){
   for(const slot of document.querySelectorAll('.engine-oil-slot[data-asset]'))slot.innerHTML=engineOilAlertHtml(slot.dataset.asset);
@@ -744,7 +815,10 @@ function setEngineOilStatus(kind='checking'){
   engineOilLastAlertSource=kind;
   const el=document.getElementById('engine-oil-source-state');if(!el)return;
   const count=[...engineOilAlerts.keys()].filter(k=>globalFleetData.some(u=>normalizeEquipNo(u.assetId)===k)).length;
-  const detail=kind==='live'?'Live Google Sheets':kind==='cached'?'Cached data (checking for updates)'
+  const cols=findLubeColumns(lubeRowsGlobal);
+  const missingFuel=lubeRowsGlobal.length && cols && !cols.fuel;
+  const detail=missingFuel?'Fuel Burned column missing in published CSV'
+    :kind==='live'?'Live Google Sheets':kind==='cached'?'Cached data (checking for updates)'
     :kind==='unavailable'?'Source unavailable; no current alerts can be confirmed':'Checking Daily Lube Top Up…';
   el.textContent=`🛢 Engine oil top-up alerts (last 7 days): ${kind==='unavailable'?'—':count+' unit'+(count===1?'':'s')} · ${detail}`;
   el.className='mb-5 px-1 text-[11px] '+(kind==='unavailable'?'text-rose-400':kind==='checking'?'text-amber-400':'theme-text-sub');
@@ -790,7 +864,7 @@ function selectLubeRecords(){
   lubeColumns=findLubeColumns(lubeRowsGlobal);
   if(!asset||!lubeColumns){activeLubeRecords=[];return;}
   const id=normalizeEquipNo(asset.assetId);
-  activeLubeRecords=lubeRowsGlobal.filter(r=>normalizeEquipNo(r[lubeColumns.equip])===id)
+  activeLubeRecords=lubeRowsGlobal.filter(r=>normalizeEquipNo(r[lubeColumns.equip])===id && safeText(r[lubeColumns.oil])!=='' && lubeNumeric(r[lubeColumns.quantity])>0)
     .sort((a,b)=>parseLubeDate(b[lubeColumns.date])-parseLubeDate(a[lubeColumns.date]));
 }
 function renderLubeTopUp(){
@@ -800,10 +874,18 @@ function renderLubeTopUp(){
   const q=safeText(document.getElementById('lube-search').value).toLowerCase();
   const cols=lubeColumns;
   if(!cols){
-    body.innerHTML='<tr><td colspan="4" class="p-6 text-center theme-text-sub">No top-up data loaded yet. Use Refresh to retrieve the published CSV.</td></tr>';
+    body.innerHTML='<tr><td colspan="7" class="p-6 text-center theme-text-sub">No top-up data loaded yet. Use Refresh to retrieve the published CSV.</td></tr>';
     document.getElementById('lube-summary').innerHTML='';
     document.getElementById('lube-record-count').textContent='0 records';return;
   }
+  const currentOilAlert=activeModalAsset?engineOilAlerts.get(normalizeEquipNo(activeModalAsset.assetId)):null;
+  const ratioPanel=document.getElementById('lube-engine-ratio');
+  if(currentOilAlert){
+    const item=currentOilAlert,hasValid=Number.isFinite(item.ratio)&&!item.fuelConflicts;
+    const label=item.fuelConflicts?'REVIEW FUEL DATA':!hasValid?'FUEL DATA UNAVAILABLE':item.result==='above'?'ABOVE LIMIT':'ACCEPTABLE';
+    const tone=item.fuelConflicts||!hasValid?'border-amber-700/60 bg-amber-900/20 text-amber-200':item.result==='above'?'border-rose-700/60 bg-rose-900/20 text-rose-200':'border-emerald-700/60 bg-emerald-900/20 text-emerald-200';
+    ratioPanel.innerHTML=`<div class="border rounded-xl px-3 py-3 ${tone}"><strong class="text-[12px]">Engine Oil / Diesel Fuel Ratio (7 Days): ${label}</strong><div class="text-[11px] mt-1">${item.count} Rimula top-ups | ${lubeFmtQty(item.liters)} L oil | ${lubeFmtQty(item.fuelLiters)} L fuel | ${hasValid?formatOilRatio(item.ratio)+' L oil / 240 L diesel':'Ratio unavailable'} | Limit: 1.00 L / 240 L</div><div class="text-[10px] mt-1 opacity-80">Unique fuel days: ${item.fuelDays}/7${item.fuelConflicts?' | Conflicting diesel values on one or more dates':''}. Only positive Shell Rimula R4 X 15W40 top-ups are included.</div></div>`;
+  }else ratioPanel.innerHTML='';
   const byType=new Map();
   for(const r of activeLubeRecords){
     const label=safeText(r[cols.oil])||'Unspecified';
@@ -849,13 +931,15 @@ function renderLubeTopUp(){
   }).join('')
     :'<div class="col-span-full text-xs theme-text-sub bg-slate-800/30 rounded-xl p-3">No top-up records for this equipment in the published source.</div>';
   if(!visible.length){
-    body.innerHTML=`<tr><td colspan="4" class="p-6 text-center theme-text-sub">${activeLubeRecords.length?'No top-up records match these filters.':'No recorded top-up for this unit.'}</td></tr>`;return;
+    body.innerHTML=`<tr><td colspan="7" class="p-6 text-center theme-text-sub">${activeLubeRecords.length?'No top-up records match these filters.':'No recorded top-up for this unit.'}</td></tr>`;return;
   }
   body.innerHTML=visible.map(r=>{
     const date=safeText(r[cols.date])||'-',oil=safeText(r[cols.oil])||'-',qty=lubeFmtQty(r[cols.quantity]);
     const remark=safeText(cols.remark&&r[cols.remark]);
     const note=remark?`<details class="group"><summary class="cursor-pointer text-sky-300 hover:text-sky-200 font-medium">${escapeHtml(remark.replace(/\s+/g,' ').slice(0,95))}${remark.length>95?'…':''}</summary><div class="mt-2 p-2 rounded-lg bg-slate-800/60 text-slate-200 whitespace-pre-wrap break-words text-[11px]">${escapeHtml(remark)}</div></details>`:'<span class="theme-text-sub">—</span>';
-    return `<tr class="hover:bg-slate-800/40 border-b border-slate-700/30"><td class="p-3 font-mono text-slate-200 whitespace-nowrap">${escapeHtml(date)}</td><td class="p-3 text-slate-200 font-semibold">${escapeHtml(oil)}</td><td class="p-3 text-right font-bold font-mono text-amber-300">${escapeHtml(qty)}</td><td class="p-3 text-slate-200 max-w-[490px]">${note}</td></tr>`;
+    const meter=lubeNumeric(cols.hourMeter&&r[cols.hourMeter]);
+    const burned=normalizedFuelLiters(r,cols),burnRate=normalizedFuelRate(r,cols);
+    return `<tr class="hover:bg-slate-800/40 border-b border-slate-700/30"><td class="p-3 font-mono text-slate-200 whitespace-nowrap">${escapeHtml(date)}</td><td class="p-3 text-slate-200 font-semibold">${escapeHtml(oil)}</td><td class="p-3 text-right font-bold font-mono text-amber-300">${escapeHtml(qty)}</td><td class="p-3 text-slate-200 max-w-[490px]">${note}</td><td class="p-3 text-right font-mono">${Number.isFinite(meter)?lubeFmtQty(meter):'—'}</td><td class="p-3 text-right font-mono">${Number.isFinite(burned)?lubeFmtQty(burned):'—'}</td><td class="p-3 text-right font-mono">${Number.isFinite(burnRate)?lubeFmtQty(burnRate):'—'}</td></tr>`;
   }).join('');
 }
 function updateLubeAssetView(){
@@ -893,7 +977,7 @@ async function fetchLubeData(force=false){
       hydrateLubeCache();
       if(lubeRowsGlobal.length)rebuildEngineOilAlerts('cached');else rebuildEngineOilAlerts('unavailable');
       setLubeSourceState(lubeRowsGlobal.length?'⚠ Google Sheets unavailable; showing cached top-up data.':'⚠ Could not load top-up CSV. Check published URL and required column headers.','error');
-      if(!lubeRowsGlobal.length)document.getElementById('lube-table-body').innerHTML='<tr><td colspan="4" class="p-6 text-center text-rose-400">Top-up data unavailable. Click Refresh to retry.</td></tr>';
+      if(!lubeRowsGlobal.length)document.getElementById('lube-table-body').innerHTML='<tr><td colspan="7" class="p-6 text-center text-rose-400">Top-up data unavailable. Click Refresh to retry.</td></tr>';
       else if(!document.getElementById('lube-modal').classList.contains('hidden'))updateLubeAssetView();
       return false;
     }finally{btn.disabled=false;lubeInFlight=null;}
@@ -928,7 +1012,7 @@ function exportLubeTopUpCsv(){
   );
   if(!filtered.length){notify('No matching records to export.');return;}
   const csvCell=(v)=>'"'+excelSafe(safeText(v)).replace(/"/g,'""')+'"';
-  const records=[['Equip No','date','Oil type','quantity oil','remark'],...filtered.map(r=>[r[c.equip],r[c.date],r[c.oil],r[c.quantity],c.remark?r[c.remark]:''])];
+  const records=[['Equip No','date','Oil type','quantity oil','remark','Hour Meter (Hours)','Total Fuel Burned (L)','Total Fuel Burn Rate (L/H)'],...filtered.map(r=>[r[c.equip],r[c.date],r[c.oil],r[c.quantity],c.remark?r[c.remark]:'',c.hourMeter?r[c.hourMeter]:'',Number.isFinite(normalizedFuelLiters(r,c))?normalizedFuelLiters(r,c):'',Number.isFinite(normalizedFuelRate(r,c))?normalizedFuelRate(r,c):''])];
   const csv='\uFEFF'+records.map(row=>row.map(csvCell).join(',')).join('\r\n');
   downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),`Lube_Top_Up_${activeModalAsset.assetId}.csv`);
   notify(`Exported ${filtered.length} top-up records.`);
