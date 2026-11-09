@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HealthFleet · Condition Monitoring</title>
+    <title>SmartFleet · Condition Monitoring</title>
     <!-- Progressive Web App: desktop + mobile -->
     <meta name="theme-color" content="#020617">
     <meta name="application-name" content="Fleet Health">
@@ -101,7 +101,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.4 · Fast Sync · Engine Oil Top-Up Alerts</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.5 · Fast Sync · Lube Daily Rates</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -315,13 +315,13 @@
                     </tbody>
                 </table>
             </div>
-            <p class="text-[10px] theme-text-sub mt-3">Quantities are displayed in the source units. Totals are grouped by oil type; different lubricants are not combined. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
+            <p class="text-[10px] theme-text-sub mt-3">Totals are grouped by oil type, without combining lubricants. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
         </div>
     </div>
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.4 · Fast Sync · Condition, Lube History & Engine Oil Alerts · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.5 · Fast Sync · Condition, Lube History & Engine Oil Alerts · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -808,9 +808,20 @@ function renderLubeTopUp(){
   for(const r of activeLubeRecords){
     const label=safeText(r[cols.oil])||'Unspecified';
     const key=label.toUpperCase();
-    if(!byType.has(key))byType.set(key,{label,total:0,count:0});
+    if(!byType.has(key))byType.set(key,{label,total:0,count:0,datedTotal:0,minDay:Infinity,maxDay:-Infinity,datedCount:0});
     const entry=byType.get(key);entry.count++;
-    const number=lubeNumeric(r[cols.quantity]);if(Number.isFinite(number))entry.total+=number;
+    const number=lubeNumeric(r[cols.quantity]);
+    if(Number.isFinite(number))entry.total+=number;
+    // Calculate L/day only from positive top-ups with valid dates for this oil type.
+    // Day span is inclusive: first recorded date through last recorded date.
+    const dateStamp=parseLubeDate(r[cols.date]);
+    if(Number.isFinite(number)&&number>0&&Number.isFinite(dateStamp)&&dateStamp>0){
+      const day=Math.floor(dateStamp/86400000)*86400000;
+      entry.minDay=Math.min(entry.minDay,day);
+      entry.maxDay=Math.max(entry.maxDay,day);
+      entry.datedTotal+=number;
+      entry.datedCount++;
+    }
   }
   const selected=filter.value;
   const labels=[...byType.keys()].sort();
@@ -822,8 +833,20 @@ function renderLubeTopUp(){
   });
   document.getElementById('lube-record-count').textContent=`${visible.length} of ${activeLubeRecords.length} records`;
   const summary=[...byType.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label));
-  document.getElementById('lube-summary').innerHTML=summary.length?summary.map(v=>
-    `<div class="summary-metric"><div class="theme-text-sub text-[10px] font-semibold truncate" title="${escapeHtml(v.label)}">${escapeHtml(v.label)}</div><div class="summary-number text-[20px] text-amber-300 mt-1">${lubeFmtQty(v.total)}</div><div class="text-[10px] theme-text-sub">${v.count} top-up record${v.count!==1?'s':''}</div></div>`).join('')
+  document.getElementById('lube-summary').innerHTML=summary.length?summary.map(v=>{
+    const hasDates=v.datedCount>0;
+    const spanDays=hasDates?Math.round((v.maxDay-v.minDay)/86400000)+1:0;
+    const dailyRate=hasDates&&spanDays>0?lubeFmtQty(v.datedTotal/spanDays):'—';
+    const shortDate=stamp=>new Date(stamp).toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
+    const period=hasDates?`${shortDate(v.minDay)} – ${shortDate(v.maxDay)}`:'No valid top-up dates';
+    return `<div class="summary-metric" title="Daily rate = total positive dated top-ups / inclusive calendar days from first to last top-up.">
+      <div class="theme-text-sub text-[10px] font-semibold truncate" title="${escapeHtml(v.label)}">${escapeHtml(v.label)}</div>
+      <div class="summary-number text-[20px] text-amber-300 mt-1">${lubeFmtQty(v.total)}</div>
+      <div class="text-[10px] theme-text-sub">${v.count} top-up record${v.count!==1?'s':''}</div>
+      <div class="mt-2 pt-2 border-t border-slate-700/50 flex flex-wrap items-baseline gap-x-1.5"><strong class="text-sky-300 text-[15px] font-extrabold tabular-nums">${dailyRate} L/day</strong><span class="theme-text-sub text-[10px]">${spanDays?`· ${spanDays} day${spanDays!==1?'s':''}`:''}</span></div>
+      <div class="theme-text-sub text-[9px] mt-1" title="First and last top-up dates for this oil type">${escapeHtml(period)}</div>
+    </div>`;
+  }).join('')
     :'<div class="col-span-full text-xs theme-text-sub bg-slate-800/30 rounded-xl p-3">No top-up records for this equipment in the published source.</div>';
   if(!visible.length){
     body.innerHTML=`<tr><td colspan="4" class="p-6 text-center theme-text-sub">${activeLubeRecords.length?'No top-up records match these filters.':'No recorded top-up for this unit.'}</td></tr>`;return;
