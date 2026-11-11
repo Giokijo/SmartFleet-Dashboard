@@ -128,7 +128,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.9 · Fault Code Asset ID Sync</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.11 · Rimula Oil Allowance</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -140,6 +140,7 @@
                         <option value="navy" class="bg-blue-950 text-white">Navy</option>
                     </select>
                 </div>
+                <span id="amt-sync-status" class="fault-feed-badge" data-state="checking" role="status" aria-live="polite" title="AMT maintenance history sync status">AMT: on demand</span>
                 <span id="fault-sync-status" class="fault-feed-badge" data-state="checking" role="status" aria-live="polite" title="Fault Code feed sync status">Faults: checking</span>
                 <button id="fault-refresh-btn" type="button" class="glass-button text-xs px-2.5 py-1.5 rounded-lg theme-text-sub font-semibold disabled:opacity-50" onclick="refreshFaultOnly()" title="Refresh fault codes from published CSV without reloading the full dashboard">↻ Refresh Faults</button>
                 <span id="sync-status" role="status" aria-live="polite" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
@@ -266,9 +267,12 @@
                     <div>
                         <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider">Asset Maintenance History (AMT)</h2>
                         <p class="text-[10px] theme-text-sub" id="amt-modal-subtitle">Loading records...</p>
+                        <p class="text-[10px] theme-text-sub mt-1" id="amt-feed-status" role="status" aria-live="polite">AMT source: awaiting sync</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmjG03oV3wiaLMa-uLWYwfLbPEdZRIcwYwWvWGTLvj_aZg6-f-seh-OQ/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-[10px] text-sky-400 hover:underline hidden sm:inline" title="Open currently published AMT CSV to compare source records">Source CSV</a>
+                    <button id="amt-refresh-btn" type="button" onclick="refreshAmtOnly()" class="glass-button px-3 py-2 rounded-xl font-semibold text-xs disabled:opacity-50" title="Fetch the latest published AMT CSV, bypassing browser cache">↻ Refresh AMT</button>
                     <button onclick="exportAmtExcel()" class="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-xs px-3 py-2 rounded-xl">↓ Export AMT</button>
                     <button onclick="closeAmtModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">✕ Close</button>
                 </div>
@@ -348,13 +352,13 @@
                     </tbody>
                 </table>
             </div>
-            <p class="text-[10px] theme-text-sub mt-3">Totals are grouped by oil type, without combining lubricants. Engine oil limit: maximum 1 L of Shell Rimula R4 X 15W40 per 240 L diesel burned, calculated over the last 7 calendar days using each equipment/date fuel figure once. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
+            <p class="text-[10px] theme-text-sub mt-3">Totals are grouped by oil type, without combining lubricants. The Shell Rimula R4 X 15W40 summary card compares all positive oil top-ups in the published source with maximum allowed top-up = total unique equipment/date diesel burned ÷ 240 (all available source dates). The separate ENGINE warning continues to use the last 7 calendar days. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
         </div>
     </div>
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.9 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.11 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -390,6 +394,8 @@ let activeModalAsset = null, activeAmtRecords = [], activeAmtKeys = null, lastSu
 let currentSelectedModel = 'ALL', currentStatusFilter = 'ALL', currentSearch = '', currentSort = 'asset';
 let pendingInstallPrompt = null, syncing = false;
 let matrixRenderGeneration = 0, searchInputTimer = null, amtInFlight = null;
+let amtLastSyncedAt = 0, amtLastError = '', amtFeedState = 'checking';
+const AMT_SYNC_KEY = 'smartfleet_amt_synced_at_v710';
 const cacheWriteSequence = new Map();
 const SYNC_TIMEOUT_MS = 9500;
 const PROXY_HEDGE_DELAY_MS = 1500;
@@ -1031,6 +1037,75 @@ function selectLubeRecords(){
   activeLubeRecords=lubeRowsGlobal.filter(r=>normalizeEquipNo(r[lubeColumns.equip])===id && safeText(r[lubeColumns.oil])!=='' && lubeNumeric(r[lubeColumns.quantity])>0)
     .sort((a,b)=>parseLubeDate(b[lubeColumns.date])-parseLubeDate(a[lubeColumns.date]));
 }
+// Summary-card assessment for the full date coverage of the published Lube feed.
+// Independent of the existing 7-day engine warning: all positive Rimula top-ups
+// are compared to all unique equipment/date fuel readings (including rows without oil).
+function computeRimulaOilAllowance(rows,assetId,cols=findLubeColumns(rows)){
+  if(!cols||!assetId)return null;
+  const id=normalizeEquipNo(assetId);
+  const fuelByDay=new Map(),oilDays=new Set();
+  let oilLiters=0,oilCount=0,fuelConflicts=false,oilMissingDate=false;
+  let fuelMin=Infinity,fuelMax=-Infinity;
+  for(const r of rows){
+    if(normalizeEquipNo(r[cols.equip])!==id)continue;
+    const day=parseLubeDate(r[cols.date]);
+    const validDay=Number.isFinite(day)&&day>0;
+    const fuel=normalizedFuelLiters(r,cols);
+    // Each source equipment/day fuel amount represents one calendar day's diesel.
+    // Never sum duplicate daily figures when multiple oil top-ups are recorded.
+    if(validDay&&Number.isFinite(fuel)){
+      if(!fuelByDay.has(day))fuelByDay.set(day,fuel);
+      else{
+        const old=fuelByDay.get(day);
+        if(Math.abs(old-fuel)>Math.max(.02,Math.max(old,fuel)*.00001)){
+          // The correct daily figure is ambiguous; show REVIEW rather than green/red.
+          fuelConflicts=true;
+          fuelByDay.set(day,Math.max(old,fuel));
+        }
+      }
+      fuelMin=Math.min(fuelMin,day);
+      fuelMax=Math.max(fuelMax,day);
+    }
+    if(normalizeOilName(r[cols.oil])!==ENGINE_OIL_TYPE_KEY)continue;
+    const qty=lubeNumeric(r[cols.quantity]);
+    if(!Number.isFinite(qty)||qty<=0)continue;
+    oilLiters+=qty;oilCount++;
+    if(validDay)oilDays.add(day);else oilMissingDate=true;
+  }
+  if(!oilCount)return null;
+  const fuelLiters=[...fuelByDay.values()].reduce((sum,v)=>sum+v,0);
+  const maxOilLiters=fuelLiters/ENGINE_OIL_DIESEL_BASIS_L;
+  const missingFuelDays=[...oilDays].filter(day=>!fuelByDay.has(day)).length;
+  const fuelAvailable=!!cols.fuel&&fuelByDay.size>0;
+  const fuelIncomplete=oilMissingDate||missingFuelDays>0;
+  const status=!fuelAvailable?'unavailable':fuelConflicts?'review':fuelIncomplete?'incomplete':oilLiters>maxOilLiters+1e-9?'above':'acceptable';
+  return {oilLiters,oilCount,fuelLiters,maxOilLiters,fuelDays:fuelByDay.size,
+    missingFuelDays,fuelConflicts,oilMissingDate,fuelMin,fuelMax,
+    difference:oilLiters-maxOilLiters,status};
+}
+function renderRimulaAllowanceCard(result){
+  if(!result)return '';
+  const label={acceptable:'ACCEPTABLE',above:'NOT ACCEPTABLE',review:'REVIEW FUEL DATA',
+    incomplete:'FUEL DATA INCOMPLETE',unavailable:'FUEL DATA UNAVAILABLE'}[result.status];
+  const tone=result.status==='acceptable'?'text-emerald-400':result.status==='above'?'text-rose-400':'text-amber-400';
+  const badge=result.status==='acceptable'?'bg-emerald-500/10 border-emerald-500/40':
+    result.status==='above'?'bg-rose-500/10 border-rose-500/40':'bg-amber-500/10 border-amber-500/40';
+  const range=result.fuelDays?`${new Date(result.fuelMin).toISOString().slice(0,10)} to ${new Date(result.fuelMax).toISOString().slice(0,10)}`:'No valid fuel dates';
+  const note=result.status==='review'?'Conflicting fuel figures exist for the same equipment/date.':
+    result.status==='incomplete'?`Fuel missing on ${result.missingFuelDays} top-up date(s)${result.oilMissingDate?' or top-up date missing':''}.`:
+    result.status==='unavailable'?'A valid Total Fuel Burned (L) value is required.':
+    result.status==='above'?`${lubeFmtQty(result.difference)} L above the maximum allowance.`:
+    `${lubeFmtQty(Math.max(0,-result.difference))} L remaining within the allowance.`;
+  return `<div class="mt-3 pt-2.5 border-t border-slate-700/50 space-y-1.5" data-rimula-allowance="${result.status}">
+    <div class="text-[10px] font-bold theme-text-sub">Engine Oil Allowance · Full Source History</div>
+    <div class="flex justify-between gap-2 text-[10px]"><span class="theme-text-sub">Total Fuel Burned</span><strong class="font-mono">${lubeFmtQty(result.fuelLiters)} L</strong></div>
+    <div class="flex justify-between gap-2 text-[10px]"><span class="theme-text-sub">Max Oil Top-Up <small>(Fuel ÷ 240)</small></span><strong class="font-mono">${lubeFmtQty(result.maxOilLiters)} L</strong></div>
+    <div class="flex justify-between gap-2 text-[10px]"><span class="theme-text-sub">Actual Oil Top-Up</span><strong class="font-mono">${lubeFmtQty(result.oilLiters)} L</strong></div>
+    <div class="border rounded-lg px-2 py-1.5 ${badge}"><strong class="text-[11px] ${tone}">${label}</strong><div class="text-[9px] theme-text-sub mt-0.5">${escapeHtml(note)}</div></div>
+    <div class="text-[9px] theme-text-sub">${result.fuelDays} unique fuel days · ${escapeHtml(range)} · Diesel counted once per asset/date</div>
+  </div>`;
+}
+
 function renderLubeTopUp(){
   const body=document.getElementById('lube-table-body');
   if(!activeModalAsset)return;
@@ -1079,6 +1154,7 @@ function renderLubeTopUp(){
   });
   document.getElementById('lube-record-count').textContent=`${visible.length} of ${activeLubeRecords.length} records`;
   const summary=[...byType.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label));
+  const rimulaAllowance=computeRimulaOilAllowance(lubeRowsGlobal,activeModalAsset.assetId,cols);
   document.getElementById('lube-summary').innerHTML=summary.length?summary.map(v=>{
     const hasDates=v.datedCount>0;
     const spanDays=hasDates?Math.round((v.maxDay-v.minDay)/86400000)+1:0;
@@ -1091,6 +1167,7 @@ function renderLubeTopUp(){
       <div class="text-[10px] theme-text-sub">${v.count} top-up record${v.count!==1?'s':''}</div>
       <div class="mt-2 pt-2 border-t border-slate-700/50 flex flex-wrap items-baseline gap-x-1.5"><strong class="text-sky-300 text-[15px] font-extrabold tabular-nums">${dailyRate} L/day</strong><span class="theme-text-sub text-[10px]">${spanDays?`· ${spanDays} day${spanDays!==1?'s':''}`:''}</span></div>
       <div class="theme-text-sub text-[9px] mt-1" title="First and last top-up dates for this oil type">${escapeHtml(period)}</div>
+      ${normalizeOilName(v.label)===ENGINE_OIL_TYPE_KEY?renderRimulaAllowanceCard(rimulaAllowance):''}
     </div>`;
   }).join('')
     :'<div class="col-span-full text-xs theme-text-sub bg-slate-800/30 rounded-xl p-3">No top-up records for this equipment in the published source.</div>';
@@ -1195,26 +1272,58 @@ function findAmtColumns(rows){
     desc:chooseColumn(keys,['Description','Repair Details'],[/desc/i,/repair/i,/details/i])
   };
 }
-async function openAmtHistoryFromModal(){
-  if(!activeModalAsset)return;const asset=activeModalAsset;
-  document.getElementById('amt-modal-subtitle').textContent=`Equipment: ${asset.assetId} | S/N: ${asset.serialNo} | ${asset.model}`;
-  document.getElementById('amt-search-input').value='';
-  document.getElementById('amt-table-body').innerHTML='<tr><td colspan="6" class="p-6 text-center text-amber-400">Loading maintenance history...</td></tr>';
-  showModal('amt-modal');
-  if(!amtRowsGlobal.length){
-    const cachedAmt=cachedGet('smartfleet_amt_csv');
-    if(Array.isArray(cachedAmt)&&cachedAmt.length)amtRowsGlobal=cachedAmt;
-  }
-  if(!amtRowsGlobal.length)await fetchAmtData();
+function setAmtFeedStatus(state,message,details=''){
+  amtFeedState=state;
+  const badge=document.getElementById('amt-sync-status');
+  if(badge){badge.dataset.state=state;badge.textContent=message;badge.title=details||message;}
+  const modalState=document.getElementById('amt-feed-status');
+  if(modalState){modalState.textContent=details||message;modalState.title=details||message;}
+}
+function hydrateAmtCache(){
+  if(amtRowsGlobal.length)return true;
+  const cached=cachedGet('smartfleet_amt_csv');
+  if(!Array.isArray(cached)||!cached.length||!findAmtColumns(cached))return false;
+  amtRowsGlobal=cached;
+  amtLastSyncedAt=Date.parse(safeLocalGet(AMT_SYNC_KEY)||'')||0;
+  const when=amtLastSyncedAt?new Date(amtLastSyncedAt).toLocaleString():'unknown sync date';
+  setAmtFeedStatus('cached',`AMT: cached (${cached.length})`,`Cached AMT: ${cached.length.toLocaleString()} source records · Last confirmed ${when} · Checking live source when AMT opens`);
+  return true;
+}
+function renderActiveAmtHistory(){
+  if(!activeModalAsset)return;
   activeAmtKeys=findAmtColumns(amtRowsGlobal);
-  if(!activeAmtKeys){activeAmtRecords=[];renderAmtHistoryTable([]);return}
-  const id=asset.assetId.toUpperCase(),sn=asset.serialNo.toUpperCase();
+  if(!activeAmtKeys){
+    activeAmtRecords=[];
+    document.getElementById('amt-record-count').textContent='0 records';
+    document.getElementById('amt-table-body').innerHTML='<tr><td colspan="6" class="p-6 text-center text-amber-400">No valid AMT records available. Check source status above.</td></tr>';
+    return;
+  }
+  const asset=activeModalAsset;
+  const id=safeText(asset.assetId).toUpperCase(),sn=safeText(asset.serialNo).toUpperCase();
   const cols=activeAmtKeys;
   const matchesById=amtRowsGlobal.filter(r=>cols.asset&&safeText(r[cols.asset]).toUpperCase()===id);
-  // Prefer exact Asset ID; serial number is fallback ONLY when asset ID has no matches.
+  // Exact Asset ID first; serial number fallback only if no Asset ID rows match.
   activeAmtRecords=matchesById.length?matchesById:amtRowsGlobal.filter(r=>cols.serial&&sn!=='-'&&safeText(r[cols.serial]).toUpperCase()===sn);
   activeAmtRecords.sort((a,b)=>parseDateMaybe(b[cols.date])-parseDateMaybe(a[cols.date]));
-  renderAmtHistoryTable(activeAmtRecords);
+  const q=safeText(document.getElementById('amt-search-input').value).toLowerCase();
+  renderAmtHistoryTable(q?activeAmtRecords.filter(r=>Object.values(r).some(v=>safeText(v).toLowerCase().includes(q))):activeAmtRecords);
+}
+async function openAmtHistoryFromModal(){
+  if(!activeModalAsset)return;
+  const asset=activeModalAsset;
+  document.getElementById('amt-modal-subtitle').textContent=`Equipment: ${asset.assetId} | S/N: ${asset.serialNo} | ${asset.model}`;
+  document.getElementById('amt-search-input').value='';
+  document.getElementById('amt-table-body').innerHTML='<tr><td colspan="6" class="p-6 text-center text-amber-400">Loading AMT maintenance history...</td></tr>';
+  showModal('amt-modal');
+  // Show any existing records immediately, but NEVER let cache suppress a live request.
+  if(!amtRowsGlobal.length)hydrateAmtCache();
+  if(amtRowsGlobal.length)renderActiveAmtHistory();
+  // A fresh fetch is done on every opening. Reopening after a Google Sheets edit is enough.
+  await fetchAmtData(true);
+}
+async function refreshAmtOnly(){
+  if(!amtRowsGlobal.length)hydrateAmtCache();
+  return fetchAmtData(true);
 }
 function getWoStatus(raw){
   const s=safeText(raw).toUpperCase();
@@ -1351,21 +1460,39 @@ async function fetchCsv(url,options={}){
     directController.abort();proxyController.abort();
   }
 }
-async function fetchAmtData(){
+async function fetchAmtData(force=false){
   if(amtInFlight)return amtInFlight;
   amtInFlight=(async()=>{
+    const btn=document.getElementById('amt-refresh-btn');
+    if(btn)btn.disabled=true;
+    setAmtFeedStatus('checking','AMT: syncing...',`Checking published AMT CSV${amtRowsGlobal.length?' · Displaying existing records until new data arrives':''}`);
     try{
-      const rows=await fetchCsv(amtUrlData,{validate:rows=>{
-        const keys=Object.keys(rows[0]||{});
-        return !!chooseColumn(keys,['Asset ID','Equipment ID','Serial Number'],[/asset.*id/i,/equipment/i,/serial/i,/^unit/i]);
+      // Manual sync and every AMT opening must bypass the browser/proxy's old response.
+      const rows=await fetchCsv(amtUrlData,{force,maxWaitMs:18000,validate:rows=>{
+        const cols=findAmtColumns(rows);
+        return !!(cols&&(cols.asset||cols.serial));
       }});
-      amtRowsGlobal=rows;deferCacheWrite('smartfleet_amt_csv',rows);
+      amtRowsGlobal=rows;
+      amtLastSyncedAt=Date.now();amtLastError='';
+      deferCacheWrite('smartfleet_amt_csv',rows);
+      try{localStorage.setItem(AMT_SYNC_KEY,new Date(amtLastSyncedAt).toISOString())}catch(e){}
+      const label=`Live AMT: ${rows.length.toLocaleString()} source rows · Retrieved ${new Date(amtLastSyncedAt).toLocaleString()} · Equipment column: ${findAmtColumns(rows)?.asset||findAmtColumns(rows)?.serial||'-'}`;
+      setAmtFeedStatus('live',`AMT: ${rows.length} live`,label);
+      if(!document.getElementById('amt-modal').classList.contains('hidden'))renderActiveAmtHistory();
       return true;
     }catch(e){
-      const cached=cachedGet('smartfleet_amt_csv');
-      if(Array.isArray(cached)&&cached.length)amtRowsGlobal=cached;
+      amtLastError=e?.message||String(e);
+      console.warn('AMT feed could not be refreshed:',e);
+      if(!amtRowsGlobal.length)hydrateAmtCache();
+      const when=amtLastSyncedAt?new Date(amtLastSyncedAt).toLocaleString():'unknown';
+      const cachedMessage=amtRowsGlobal.length?`Cached AMT (${amtRowsGlobal.length.toLocaleString()} records, last live fetch ${when}). LIVE REFRESH FAILED: ${amtLastError}`:`AMT unavailable: ${amtLastError}`;
+      setAmtFeedStatus(amtRowsGlobal.length?'cached':'error',amtRowsGlobal.length?'AMT: cached':'AMT: unavailable',cachedMessage);
+      if(!document.getElementById('amt-modal').classList.contains('hidden'))renderActiveAmtHistory();
       return false;
-    }finally{amtInFlight=null}
+    }finally{
+      if(btn)btn.disabled=false;
+      amtInFlight=null;
+    }
   })();
   return amtInFlight;
 }
@@ -1419,9 +1546,9 @@ async function fetchAllData(forceRefresh=true){
   }finally{
     btn.disabled=false;syncing=false;
     // Do not block the main dashboard while checking the second source.
-    if(forceRefresh)setTimeout(()=>{fetchLubeData(true);fetchFaultData(true)},0);
+    if(forceRefresh)setTimeout(()=>{fetchLubeData(true);fetchFaultData(true);fetchAmtData(true)},0);
   }
-  // AMT history remains on demand; engine oil source refreshes independently.
+  // AMT loads on demand at startup; manual Sync Data also refreshes it in the background.
 }
 function makeRowsForExport(assets){
   const rows=[];for(const asset of assets)for(const [name,c] of Object.entries(asset.components))rows.push([asset.assetId,asset.model,asset.serialNo,name,c.status,c.life,c.elements,c.action,c.sosDate,c.trend,c.workOrder,isWorkOrderDone(c.workOrder)?'Done':'',c.rawStatus]);
@@ -1490,6 +1617,8 @@ function initUi(){
   initPwa();
   hydrateLubeCache();
   hydrateFaultCache();
+  // AMT history stays on demand at startup; a cached AMT status is still shown.
+  hydrateAmtCache();
   if(!lubeRowsGlobal.length)setEngineOilStatus('checking');
   // Keep primary SOS data first. Fetch oil history only after main dashboard sync completes.
   fetchAllData(false).finally(()=>{
