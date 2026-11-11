@@ -62,6 +62,25 @@
     .engine-oil-alert[data-result="above"] .engine-oil-result {color:#991b1b}
     .engine-oil-alert[data-result="acceptable"] .engine-oil-result {color:#065f46}
     .engine-oil-alert[data-result="unavailable"] .engine-oil-result {color:#92400e}
+    /* Fault records under Asset ID: all records available through a compact, scrollable list. */
+    .asset-fault-slot:empty {display:none}
+    .asset-fault-slot:not(:empty) {margin-top:9px;border-top:1px solid var(--border-color);padding-top:7px;max-width:100%}
+    .fault-feed-heading {font-size:9px;color:var(--text-sub);font-weight:700;letter-spacing:.045em;text-transform:uppercase;margin-bottom:5px}
+    .asset-fault-list {max-height:190px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#64748b transparent;padding-right:2px}
+    .asset-fault-item {border-left:2px solid rgba(148,163,184,.36);padding:2px 0 5px 6px;margin-bottom:5px;border-bottom:1px solid var(--border-color);overflow-wrap:anywhere;line-height:1.3}
+    .asset-fault-item:last-child {border-bottom:0;margin-bottom:0}
+    .asset-fault-item[data-severity="high"] {border-left-color:#f43f5e}
+    .asset-fault-item[data-severity="medium"] {border-left-color:#f59e0b}
+    .asset-fault-item[data-severity="low"] {border-left-color:#10b981}
+    .fault-description {font-size:10px;font-weight:650;color:var(--text-main);line-height:1.3}
+    .fault-detail-line {display:flex;align-items:flex-start;flex-wrap:wrap;gap:2px 5px;margin-top:3px;font-size:9px}
+    .fault-timestamp {font-size:9px;white-space:nowrap;color:var(--text-sub);font-variant-numeric:tabular-nums}
+    .fault-counts {display:inline-flex;gap:5px;white-space:nowrap;font-weight:700;font-size:9px;font-variant-numeric:tabular-nums}
+    .fault-counts .fault-l {color:#10b981}.fault-counts .fault-m {color:#f59e0b}.fault-counts .fault-h {color:#fb7185}
+    .fault-feed-badge {font-size:10px;padding:5px 8px;border-radius:9px;border:1px solid var(--border-color);color:var(--text-sub);white-space:nowrap}
+    .fault-feed-badge[data-state="live"] {color:#6ee7b7;border-color:rgba(16,185,129,.25)}
+    .fault-feed-badge[data-state="cached"] {color:#fbbf24;border-color:rgba(245,158,11,.25)}
+    .fault-feed-badge[data-state="error"] {color:#fda4af;border-color:rgba(244,63,94,.3)}
     .comp-cell {width:196px;min-width:196px;max-width:196px}
     .table-container {max-height:min(70vh,850px);overflow:auto;overscroll-behavior:contain;position:relative;scrollbar-color:#64748b transparent;scrollbar-width:thin}
     thead th {position:sticky;top:0;z-index:20;background:var(--sticky-head)!important;box-shadow:inset 0 -1px 0 var(--border-color);color:var(--text-sub)}
@@ -92,7 +111,7 @@
     .no-scrollbar::-webkit-scrollbar-thumb {background:rgba(148,163,184,.3);border-radius:10px}
     .muted-status {color:var(--text-sub)}
     [hidden], .hidden {display:none!important}
-    @media (max-width:640px) {.table-container{max-height:66vh}.summary-metric{min-height:77px;padding:11px}.summary-number{font-size:21px}.comp-cell{width:184px;min-width:184px;max-width:184px}.health-card{padding:8px}}
+    @media (max-width:640px) {.asset-fault-list{max-height:154px}.table-container{max-height:66vh}.summary-metric{min-height:77px;padding:11px}.summary-number{font-size:21px}.comp-cell{width:184px;min-width:184px;max-width:184px}.health-card{padding:8px}}
     @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
     </style>
 </head>
@@ -109,7 +128,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.6 · Engine Oil / Fuel Ratio</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.7 · Engine Oil / Fuel Ratio</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -121,6 +140,7 @@
                         <option value="navy" class="bg-blue-950 text-white">Navy</option>
                     </select>
                 </div>
+                <span id="fault-sync-status" class="fault-feed-badge" data-state="checking" role="status" aria-live="polite" title="Faults are loaded independently from the Condition Monitoring data">Faults: checking</span>
                 <span id="sync-status" role="status" aria-live="polite" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
                 <button id="pwa-install-btn" type="button" class="glass-button bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard as application">⬇ Install App</button>
                 <button onclick="fetchAllData(true)" id="sync-button" class="glass-button bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync Data</button>
@@ -333,7 +353,7 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.6 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.7 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -342,6 +362,9 @@
 const mainUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSrf2aRz_JTAfexbNCF70MOB8lhPxq91WgH2uHGK0xAKfZcCGRAFOUjXD6dy3iJwQ/pub?output=csv";
 const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmjG03oV3wiaLMa-uLWYwfLbPEdZRIcwYwWvWGTLvj_aZg6-f-seh-OQ/pub?output=csv";
 const lubeUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv";
+const faultUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSPvZAAtiY4TsK0ouT95Rg48tOv9DTcmPunMFuWUfO4dHas9xBZ4hxNOdnN9gesdA/pub?output=csv";
+const FAULT_CACHE_TTL_MS = 120000;
+let faultRowsGlobal=[], faultByAsset=new Map(), faultLastSyncedAt=0, faultInFlight=null, faultSource='checking';
 const LUBE_CACHE_TTL_MS = 120000; // Only check Google Sheets when Lube Top Up is opened; short-lived in-memory reuse.
 let lubeRowsGlobal = [], lubeColumns = null, activeLubeRecords = [], lubeLastSyncedAt = 0, lubeInFlight = null, lubeLastError = null;
 const ENGINE_OIL_TYPE_KEY = 'SHELLRIMULAR4X15W40';
@@ -665,10 +688,109 @@ function buildCard(cd,dim=false,assetReferenceSmu='-',assetId='',componentName='
     ?`<div class="engine-oil-slot" data-asset="${escapeHtml(assetId)}">${engineOilAlertHtml(assetId)}</div>`:'';
   return `<div class="health-card ${cls} ${dim?'opacity-25 grayscale':''}" ${isPlaceholder?'data-not-monitored="true" title="No source record (visual Normal placeholder only)"':`title="${escapeHtml(item.action)}"`}><div class="flex justify-between items-center gap-1"><strong class="text-[11px]">${severity}</strong><span class="life-pill" title="Component life / reference SMU">${life}</span></div>${donePill}${oilSlot}${elements}${action}<div class="mt-auto border-t border-black/10 pt-1.5 flex flex-col gap-1"><div class="flex justify-between gap-1"><span class="mini-label">Sample</span><span class="value-line">${sample}</span></div><div class="flex justify-between items-center"><span class="mini-label">Trend</span>${trend||'<span class="value-line"></span>'}</div><div class="flex justify-between gap-1"><span class="mini-label">WO</span><span class="value-line">${wo}</span></div></div></div>`;
 }
+// The published fault feed is separate from the primary SOS feed.
+// Fault records are display-only; they do not change any SOS health KPIs.
+function findFaultColumns(rows){
+  if(!Array.isArray(rows)||!rows.length)return null;
+  const keys=Object.keys(rows[0]);
+  const cols={
+    asset:chooseColumn(keys,['Asset ID','Asset','Equipment ID','Equipment No','Equip No','Equip No.','Unit ID','Machine ID','Machine','Equipment'],[/^asset.*(?:id|no|number)$/i,/^(?:equipment|equip|unit|machine).*(?:id|no|number|name)$/i,/^(?:asset|equipment|equip|unit|machine)$/i]),
+    fault:chooseColumn(keys,['Fault Code','Fault Code Description','Fault Description','Fault Name','Event Description','Description','Fault','Event'],[/^fault.*(?:code|description|name)$/i,/^event.*description$/i,/^description$/i]),
+    date:chooseColumn(keys,['Fault Code Date','Fault Date','Fault Code Date Time','Fault Code Date & Time','Event Date','Event Date Time','Event Time','Timestamp','Date Time','Date'],[/^fault.*(?:date|time)/i,/^event.*(?:date|time)$/i,/^timestamp$/i,/^date(?:time)?$/i]),
+    low:chooseColumn(keys,['Low','Low Count','Low Severity','L'],[/^low/i,/^l$/i]),
+    medium:chooseColumn(keys,['Medium','Medium Count','Medium Severity','M'],[/^med/i,/^m$/i]),
+    high:chooseColumn(keys,['High','High Count','High Severity','H'],[/^high/i,/^h$/i])
+  };
+  return cols.asset&&cols.fault&&cols.date&&cols.low&&cols.medium&&cols.high?cols:null;
+}
+function normalizeFaultAssetId(x){return safeText(x).toUpperCase().replace(/[\s._-]/g,'')}
+function parseFaultCount(raw){
+  const v=safeText(raw).replace(/^\s*[LMH]\s*[:=]?\s*/i,'').replace(/,/g,'');
+  const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.trunc(n)):0;
+}
+function parseFaultTimestamp(raw){
+  const str=safeText(raw);if(!str||str==='-')return {stamp:0,text:'Date unavailable'};
+  let normalized=str.replace(/\s+UTC$/i,'Z').replace(/\s+GMT$/i,'Z');
+  // Treat timezone-free ISO timestamps as UTC, matching the feed's Z examples.
+  if(/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(normalized)&&!/(?:Z|[+\-]\d{2}:?\d{2})$/i.test(normalized))normalized+='Z';
+  const dt=new Date(normalized);
+  if(Number.isFinite(dt.getTime()))return {stamp:dt.getTime(),text:dt.toISOString().slice(0,19).replace('T',' ')+' UTC'};
+  return {stamp:0,text:str.replace('T',' ').replace(/Z$/,' UTC')};
+}
+function rebuildFaultIndex(rows){
+  const cols=findFaultColumns(rows),map=new Map();
+  if(!cols){faultByAsset=new Map();return false}
+  for(const r of rows){
+    const id=normalizeFaultAssetId(r[cols.asset]),name=safeText(r[cols.fault]);
+    if(!id||!name||name==='-')continue;
+    const when=parseFaultTimestamp(r[cols.date]);
+    const fault={name,date:when.text,stamp:when.stamp,low:parseFaultCount(r[cols.low]),medium:parseFaultCount(r[cols.medium]),high:parseFaultCount(r[cols.high])};
+    if(!map.has(id))map.set(id,[]);
+    map.get(id).push(fault);
+  }
+  for(const records of map.values())records.sort((a,b)=>b.stamp-a.stamp);
+  faultByAsset=map;
+  return true;
+}
+function renderAssetFaults(assetId){
+  const records=faultByAsset.get(normalizeFaultAssetId(assetId));
+  if(!records||!records.length)return '';
+  const items=records.map(r=>{
+    const severity=r.high>0?'high':r.medium>0?'medium':r.low>0?'low':'none';
+    return `<div class="asset-fault-item" data-severity="${severity}" title="${escapeHtml(r.name+' | '+r.date+' | L'+r.low+' M'+r.medium+' H'+r.high)}"><div class="fault-description">${escapeHtml(r.name)}</div><div class="fault-detail-line"><time class="fault-timestamp">${escapeHtml(r.date)}</time><span class="fault-counts"><span class="fault-l">L${r.low}</span><span class="fault-m">M${r.medium}</span><span class="fault-h">H${r.high}</span></span></div></div>`;
+  }).join('');
+  return `<div class="fault-feed-heading">Fault codes (${records.length})</div><div class="asset-fault-list" aria-label="Fault code records for ${escapeHtml(assetId)}" title="Scroll to view all faults">${items}</div>`;
+}
+function updateVisibleFaults(){
+  // Does not rebuild the fleet matrix, avoiding expensive chart/table refreshes.
+  for(const slot of document.querySelectorAll('.asset-fault-slot[data-fault-asset]')){
+    slot.innerHTML=renderAssetFaults(slot.dataset.faultAsset);
+  }
+}
+function setFaultFeedStatus(state,message){
+  faultSource=state;
+  const el=document.getElementById('fault-sync-status');
+  if(!el)return;
+  el.dataset.state=state;el.textContent=message;
+}
+function hydrateFaultCache(){
+  const rows=cachedGet('smartfleet_fault_csv');
+  if(!Array.isArray(rows)||!rows.length||!rebuildFaultIndex(rows))return false;
+  faultRowsGlobal=rows;
+  const last=safeLocalGet('smartfleet_fault_sync_at');
+  faultLastSyncedAt=last?Date.parse(last)||0:0;
+  setFaultFeedStatus('cached',`Faults: cached (${rows.length})`);
+  return true;
+}
+async function fetchFaultData(force=false){
+  if(faultInFlight)return faultInFlight;
+  if(!force&&faultRowsGlobal.length&&faultLastSyncedAt&&Date.now()-faultLastSyncedAt<FAULT_CACHE_TTL_MS)return true;
+  faultInFlight=(async()=>{
+    setFaultFeedStatus('checking','Faults: syncing...');
+    try{
+      const rows=await fetchCsv(faultUrlData,{force,validate:rows=>!!findFaultColumns(rows)});
+      if(!rebuildFaultIndex(rows))throw new Error('Fault feed headers not recognized');
+      faultRowsGlobal=rows;faultLastSyncedAt=Date.now();
+      deferCacheWrite('smartfleet_fault_csv',rows);
+      try{localStorage.setItem('smartfleet_fault_sync_at',new Date(faultLastSyncedAt).toISOString())}catch(e){}
+      updateVisibleFaults();
+      setFaultFeedStatus('live',`Faults: ${rows.length} records`);
+      return true;
+    }catch(e){
+      console.warn('Fault feed could not be loaded:',e);
+      if(!faultRowsGlobal.length)hydrateFaultCache();
+      updateVisibleFaults();
+      setFaultFeedStatus(faultRowsGlobal.length?'cached':'error',faultRowsGlobal.length?`Faults: cached (${faultRowsGlobal.length})`:'Faults: unavailable');
+      return false;
+    }finally{faultInFlight=null}
+  })();
+  return faultInFlight;
+}
+
 function renderTable(data,components){
   const generation=++matrixRenderGeneration;
   const head=document.getElementById('matrix-head'),body=document.getElementById('matrix-body');
-  head.innerHTML=`<tr><th class="p-3 sticky-asset-col w-36 min-w-[144px] text-xs text-sky-400">Asset ID</th>${components.map(comp=>`<th data-component="${escapeHtml(comp)}" class="p-3 comp-cell text-center text-[10px] border-r border-slate-700/30">${escapeHtml(comp)}</th>`).join('')}</tr>`;
+  head.innerHTML=`<tr><th class="p-3 sticky-asset-col text-xs text-sky-400" style="width:252px;min-width:252px;max-width:252px">Asset ID</th>${components.map(comp=>`<th data-component="${escapeHtml(comp)}" class="p-3 comp-cell text-center text-[10px] border-r border-slate-700/30">${escapeHtml(comp)}</th>`).join('')}</tr>`;
   if(!data.length){body.innerHTML=`<tr><td class="p-8 text-center theme-text-sub" colspan="${components.length+1}">No matching assets. Change the filters or search criteria.</td></tr>`;return;}
   // Keep the first section responsive, then spread DOM insertion over paint frames.
   // Never recompute the reference SMU once for every component in a given unit.
@@ -680,7 +802,7 @@ function renderTable(data,components){
     for(let i=start;i<end;i++){
       const unit=data[i];
       const referenceSmu=getAssetReferenceSmu(unit);
-      html+=`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,referenceSmu,unit.assetId,comp)}</td>`).join('')}</tr>`;
+      html+=`<tr class="matrix-row border-b border-slate-700/20"><td class="sticky-asset-col p-3 border-r border-slate-700/30 align-top" style="width:252px;min-width:252px;max-width:252px"><button data-asset="${escapeHtml(unit.assetId)}" onclick="openAssetDetail(this.dataset.asset)" type="button" class="flex flex-col text-left text-sky-400 hover:text-sky-300 font-extrabold"><span class="text-xs">${escapeHtml(unit.assetId)} <span aria-hidden="true">↗</span></span><span class="text-[10px] font-normal theme-text-sub mt-1">${escapeHtml(unit.model)}</span></button><div class="asset-fault-slot" data-fault-asset="${escapeHtml(unit.assetId)}">${renderAssetFaults(unit.assetId)}</div></td>${components.map(comp=>`<td class="p-2 comp-cell align-top border-r border-slate-700/20">${buildCard(unit.components[comp],currentStatusFilter!=='ALL'&&unit.components[comp]&&unit.components[comp].status!==currentStatusFilter,referenceSmu,unit.assetId,comp)}</td>`).join('')}</tr>`;
     }
     if(start===0)body.innerHTML=html;else body.insertAdjacentHTML('beforeend',html);
     if(end<data.length)requestAnimationFrame(()=>addBatch(end));
@@ -1255,7 +1377,7 @@ async function fetchAllData(forceRefresh=true){
   }finally{
     btn.disabled=false;syncing=false;
     // Do not block the main dashboard while checking the second source.
-    if(forceRefresh)setTimeout(()=>fetchLubeData(true),0);
+    if(forceRefresh)setTimeout(()=>{fetchLubeData(true);fetchFaultData(true)},0);
   }
   // AMT history remains on demand; engine oil source refreshes independently.
 }
@@ -1325,11 +1447,14 @@ function initUi(){
   document.querySelectorAll('#asset-modal,#amt-modal,#lube-modal').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal){if(modal.id==='amt-modal')closeAmtModal();else if(modal.id==='lube-modal')closeLubeModal();else closeAssetModal()}}));
   initPwa();
   hydrateLubeCache();
+  hydrateFaultCache();
   if(!lubeRowsGlobal.length)setEngineOilStatus('checking');
   // Keep primary SOS data first. Fetch oil history only after main dashboard sync completes.
   fetchAllData(false).finally(()=>{
     if(!lubeRowsGlobal.length||Date.now()-lubeLastSyncedAt>LUBE_CACHE_TTL_MS)fetchLubeData(false);
     else setEngineOilStatus('cached');
+    // Fault records load separately and do not delay the SOS dashboard.
+    fetchFaultData(false);
   });
   // Refresh the calendar window if a wallboard stays open past midnight.
   setInterval(()=>{
