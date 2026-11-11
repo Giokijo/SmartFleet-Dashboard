@@ -128,7 +128,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.7 · Engine Oil / Fuel Ratio</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.9 · Fault Code Asset ID Sync</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -140,7 +140,8 @@
                         <option value="navy" class="bg-blue-950 text-white">Navy</option>
                     </select>
                 </div>
-                <span id="fault-sync-status" class="fault-feed-badge" data-state="checking" role="status" aria-live="polite" title="Faults are loaded independently from the Condition Monitoring data">Faults: checking</span>
+                <span id="fault-sync-status" class="fault-feed-badge" data-state="checking" role="status" aria-live="polite" title="Fault Code feed sync status">Faults: checking</span>
+                <button id="fault-refresh-btn" type="button" class="glass-button text-xs px-2.5 py-1.5 rounded-lg theme-text-sub font-semibold disabled:opacity-50" onclick="refreshFaultOnly()" title="Refresh fault codes from published CSV without reloading the full dashboard">↻ Refresh Faults</button>
                 <span id="sync-status" role="status" aria-live="polite" class="text-xs text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-800">Ready</span>
                 <button id="pwa-install-btn" type="button" class="glass-button bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md disabled:opacity-60 disabled:cursor-default" aria-label="Install Fleet Health App" title="Install dashboard as application">⬇ Install App</button>
                 <button onclick="fetchAllData(true)" id="sync-button" class="glass-button bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-2 rounded-xl transition shadow-md">🔄 Sync Data</button>
@@ -353,7 +354,7 @@
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.7 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.9 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -364,7 +365,12 @@ const amtUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGVlvgMoCmj
 const lubeUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv";
 const faultUrlData = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSPvZAAtiY4TsK0ouT95Rg48tOv9DTcmPunMFuWUfO4dHas9xBZ4hxNOdnN9gesdA/pub?output=csv";
 const FAULT_CACHE_TTL_MS = 120000;
-let faultRowsGlobal=[], faultByAsset=new Map(), faultLastSyncedAt=0, faultInFlight=null, faultSource='checking';
+// New key prevents the older published Name-header feed cache from hiding the updated Asset ID feed.
+// Legacy fault data may still be displayed temporarily, clearly marked as cached, if the network fails.
+const FAULT_CACHE_KEY = 'smartfleet_fault_csv_v79';
+const FAULT_SYNC_KEY = 'smartfleet_fault_sync_at_v79';
+let faultRowsGlobal=[], faultByAsset=new Map(), faultLastSyncedAt=0, faultInFlight=null, faultSource='checking', faultUnassignedRows=0;
+let faultIdHeader='-', faultLastError='';
 const LUBE_CACHE_TTL_MS = 120000; // Only check Google Sheets when Lube Top Up is opened; short-lived in-memory reuse.
 let lubeRowsGlobal = [], lubeColumns = null, activeLubeRecords = [], lubeLastSyncedAt = 0, lubeInFlight = null, lubeLastError = null;
 const ENGINE_OIL_TYPE_KEY = 'SHELLRIMULAR4X15W40';
@@ -694,7 +700,9 @@ function findFaultColumns(rows){
   if(!Array.isArray(rows)||!rows.length)return null;
   const keys=Object.keys(rows[0]);
   const cols={
-    asset:chooseColumn(keys,['Asset ID','Asset','Equipment ID','Equipment No','Equip No','Equip No.','Unit ID','Machine ID','Machine','Equipment'],[/^asset.*(?:id|no|number)$/i,/^(?:equipment|equip|unit|machine).*(?:id|no|number|name)$/i,/^(?:asset|equipment|equip|unit|machine)$/i]),
+    // The published feed now labels its equipment-identifier column "Asset ID".
+    // Always prefer it over a legacy "Name" column or the serial-number column.
+    asset:chooseColumn(keys,['Asset ID','AssetID','Asset No','Equipment ID','Equip No','Unit ID','Machine ID','Asset Name','Equipment Name','Name','Asset','Equipment'],[/^asset.*(?:id|no|number)$/i,/^(?:equipment|equip|unit|machine).*(?:id|no|number|name)$/i,/^name$/i]),
     fault:chooseColumn(keys,['Fault Code','Fault Code Description','Fault Description','Fault Name','Event Description','Description','Fault','Event'],[/^fault.*(?:code|description|name)$/i,/^event.*description$/i,/^description$/i]),
     date:chooseColumn(keys,['Fault Code Date','Fault Date','Fault Code Date Time','Fault Code Date & Time','Event Date','Event Date Time','Event Time','Timestamp','Date Time','Date'],[/^fault.*(?:date|time)/i,/^event.*(?:date|time)$/i,/^timestamp$/i,/^date(?:time)?$/i]),
     low:chooseColumn(keys,['Low','Low Count','Low Severity','L'],[/^low/i,/^l$/i]),
@@ -719,10 +727,27 @@ function parseFaultTimestamp(raw){
 }
 function rebuildFaultIndex(rows){
   const cols=findFaultColumns(rows),map=new Map();
-  if(!cols){faultByAsset=new Map();return false}
+  if(!cols)return false;
+  faultIdHeader=cols.asset;
+  // Use a serial number only when Asset ID is absent AND the
+  // serial belongs unambiguously to one asset already in the SOS fleet.
+  const serialCol=chooseColumn(Object.keys(rows[0]),['Asset Serial Number','Serial Number','Serial No','S/N'],[/^asset.*serial/i,/^serial.*number$/i]);
+  const serialAssets=new Map(),ambiguousSerials=new Set();
+  for(const unit of globalFleetData){
+    const serial=normalizeFaultAssetId(unit.serialNo);
+    if(!serial||serial==='-')continue;
+    if(serialAssets.has(serial)&&serialAssets.get(serial)!==unit.assetId)ambiguousSerials.add(serial);
+    else serialAssets.set(serial,unit.assetId);
+  }
+  let ignoredRows=0;
   for(const r of rows){
-    const id=normalizeFaultAssetId(r[cols.asset]),name=safeText(r[cols.fault]);
-    if(!id||!name||name==='-')continue;
+    let id=normalizeFaultAssetId(r[cols.asset]);
+    if(!id&&serialCol){
+      const serial=normalizeFaultAssetId(r[serialCol]);
+      if(!ambiguousSerials.has(serial))id=normalizeFaultAssetId(serialAssets.get(serial));
+    }
+    const name=safeText(r[cols.fault]);
+    if(!id||!name||name==='-'){ignoredRows++;continue;}
     const when=parseFaultTimestamp(r[cols.date]);
     const fault={name,date:when.text,stamp:when.stamp,low:parseFaultCount(r[cols.low]),medium:parseFaultCount(r[cols.medium]),high:parseFaultCount(r[cols.high])};
     if(!map.has(id))map.set(id,[]);
@@ -730,6 +755,7 @@ function rebuildFaultIndex(rows){
   }
   for(const records of map.values())records.sort((a,b)=>b.stamp-a.stamp);
   faultByAsset=map;
+  faultUnassignedRows=ignoredRows;
   return true;
 }
 function renderAssetFaults(assetId){
@@ -752,40 +778,56 @@ function setFaultFeedStatus(state,message){
   const el=document.getElementById('fault-sync-status');
   if(!el)return;
   el.dataset.state=state;el.textContent=message;
+  const parts=[message];
+  if(faultIdHeader!=='-')parts.push('Equipment column: '+faultIdHeader);
+  if(faultUnassignedRows)parts.push('Unassigned source records: '+faultUnassignedRows);
+  if(faultLastError)parts.push('Last error: '+faultLastError);
+  el.title=parts.join(' | ');
 }
 function hydrateFaultCache(){
-  const rows=cachedGet('smartfleet_fault_csv');
+  let rows=cachedGet(FAULT_CACHE_KEY);
+  const fromLegacy=!Array.isArray(rows)||!rows.length;
+  if(fromLegacy)rows=cachedGet('smartfleet_fault_csv');
   if(!Array.isArray(rows)||!rows.length||!rebuildFaultIndex(rows))return false;
   faultRowsGlobal=rows;
-  const last=safeLocalGet('smartfleet_fault_sync_at');
+  // Legacy cache is always revalidated on first load, even if only seconds old.
+  const last=fromLegacy?null:safeLocalGet(FAULT_SYNC_KEY);
   faultLastSyncedAt=last?Date.parse(last)||0:0;
-  setFaultFeedStatus('cached',`Faults: cached (${rows.length})`);
+  setFaultFeedStatus('cached',`Faults: cached (${rows.length-faultUnassignedRows})`);
   return true;
 }
 async function fetchFaultData(force=false){
   if(faultInFlight)return faultInFlight;
   if(!force&&faultRowsGlobal.length&&faultLastSyncedAt&&Date.now()-faultLastSyncedAt<FAULT_CACHE_TTL_MS)return true;
   faultInFlight=(async()=>{
+    const refresh=document.getElementById('fault-refresh-btn');
+    if(refresh)refresh.disabled=true;
     setFaultFeedStatus('checking','Faults: syncing...');
     try{
+      // Explicit Asset ID is preferred, with Name only as a backward-compatible fallback.
       const rows=await fetchCsv(faultUrlData,{force,validate:rows=>!!findFaultColumns(rows)});
       if(!rebuildFaultIndex(rows))throw new Error('Fault feed headers not recognized');
-      faultRowsGlobal=rows;faultLastSyncedAt=Date.now();
-      deferCacheWrite('smartfleet_fault_csv',rows);
-      try{localStorage.setItem('smartfleet_fault_sync_at',new Date(faultLastSyncedAt).toISOString())}catch(e){}
+      faultRowsGlobal=rows;faultLastSyncedAt=Date.now();faultLastError='';
+      deferCacheWrite(FAULT_CACHE_KEY,rows);
+      try{localStorage.setItem(FAULT_SYNC_KEY,new Date(faultLastSyncedAt).toISOString())}catch(e){}
       updateVisibleFaults();
-      setFaultFeedStatus('live',`Faults: ${rows.length} records`);
+      setFaultFeedStatus('live',`Faults: ${rows.length-faultUnassignedRows} records / ${faultByAsset.size} units`);
       return true;
     }catch(e){
+      faultLastError=e?.message||String(e);
       console.warn('Fault feed could not be loaded:',e);
       if(!faultRowsGlobal.length)hydrateFaultCache();
       updateVisibleFaults();
-      setFaultFeedStatus(faultRowsGlobal.length?'cached':'error',faultRowsGlobal.length?`Faults: cached (${faultRowsGlobal.length})`:'Faults: unavailable');
+      setFaultFeedStatus(faultRowsGlobal.length?'cached':'error',faultRowsGlobal.length?`Faults: cached (${faultRowsGlobal.length-faultUnassignedRows})`:'Faults: unavailable');
       return false;
-    }finally{faultInFlight=null}
+    }finally{
+      if(refresh)refresh.disabled=false;
+      faultInFlight=null;
+    }
   })();
   return faultInFlight;
 }
+function refreshFaultOnly(){return fetchFaultData(true)}
 
 function renderTable(data,components){
   const generation=++matrixRenderGeneration;
