@@ -112,6 +112,87 @@
     .muted-status {color:var(--text-sub)}
     [hidden], .hidden {display:none!important}
     @media (max-width:640px) {.asset-fault-list{max-height:154px}.table-container{max-height:66vh}.summary-metric{min-height:77px;padding:11px}.summary-number{font-size:21px}.comp-cell{width:184px;min-width:184px;max-width:184px}.health-card{padding:8px}}
+
+    /* Rev 7.12: readable Daily Lube layout, independent of the dashboard/AMT modals. */
+    #lube-modal {position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+      background:rgba(2,6,23,.85);backdrop-filter:blur(5px);overflow-y:auto;overscroll-behavior:contain;padding:10px}
+    #lube-modal .lube-dialog {width:min(97vw,1530px);max-width:none;max-height:96dvh;
+      overflow-y:auto;overflow-x:hidden;display:block;flex:none;scrollbar-width:thin;scrollbar-color:#64748b transparent;
+      background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:20px;
+      box-shadow:0 25px 65px rgba(0,0,0,.4)}
+    #lube-modal .lube-modal-header {gap:12px;margin-bottom:12px;padding-bottom:12px}
+    #lube-summary.lube-summary-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+      align-items:start;gap:10px;margin-bottom:14px}
+    #lube-summary .summary-metric {height:auto;min-height:144px;padding:12px 13px;
+      display:flex;flex-direction:column;align-self:start}
+    #lube-summary .lube-metric-total {font-variant-numeric:tabular-nums}
+    #lube-summary .lube-rate {font-size:14px;line-height:1.3}
+    #lube-summary .lube-date-period {font-size:10px;line-height:1.4}
+    #lube-summary .lube-rimula-card {border-color:rgba(245,158,11,.35)}
+    #lube-summary .lube-rimula-card .lube-allowance {padding-top:9px;margin-top:9px;
+      border-top:1px solid var(--border-color);font-size:10px}
+    .lube-allowance-heading {font-weight:800;font-size:10px;color:var(--text-sub);margin-bottom:7px}
+    .lube-allowance-heading small {font-weight:500;font-size:9px}
+    .lube-allowance-values {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 9px;align-items:center}
+    .lube-allowance-values span {color:var(--text-sub);line-height:1.2}
+    .lube-allowance-values strong {font-size:10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .lube-allowance-status {margin-top:9px;border-radius:9px;padding:7px 8px;border:1px solid;
+      display:flex;align-items:center;flex-wrap:wrap;gap:3px 10px;justify-content:space-between}
+    .lube-allowance-status strong {font-size:11px}
+    .lube-allowance-status small {font-size:9px;line-height:1.35;max-width:100%;color:var(--text-sub)}
+    .lube-allowance-notes {margin-top:6px;color:var(--text-sub);font-size:9px;line-height:1.4}
+    .lube-allowance-notes summary {cursor:pointer;user-select:none}
+    .lube-allowance-notes p {margin-top:4px}
+    #lube-modal .lube-record-controls {gap:8px;margin-bottom:10px}
+    #lube-modal .lube-record-heading {display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+      margin:0 0 8px;justify-content:space-between}
+    #lube-modal .lube-record-heading strong {font-size:12px;color:var(--text-main)}
+    #lube-modal .lube-record-heading span {font-size:10px;color:var(--text-sub)}
+    #lube-modal .lube-table-toggle {border:1px solid var(--border-color);background:var(--input-bg);
+      color:var(--text-main);border-radius:9px;padding:8px 11px;font-weight:700;font-size:11px;white-space:nowrap}
+    #lube-modal .lube-table-toggle:hover {background:var(--hover-bg)}
+    #lube-modal .lube-history-scroll {width:100%;min-height:290px;height:clamp(290px,43vh,465px);
+      max-height:none;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#64748b transparent;
+      border:1px solid var(--border-color);border-radius:12px;background:rgba(15,23,42,.24)}
+    #lube-modal .lube-history-table {width:100%;min-width:1050px;border-collapse:separate;border-spacing:0;
+      table-layout:auto;font-size:11px}
+    #lube-modal .lube-history-table thead th {position:sticky;top:0;z-index:3;
+      padding:12px 10px;white-space:normal;line-height:1.25;font-size:10px;text-transform:uppercase;
+      box-shadow:inset 0 -1px 0 var(--border-color)}
+    #lube-modal .lube-history-table td {padding:11px 10px;vertical-align:top;line-height:1.4}
+    #lube-modal .lube-history-table th:first-child,
+    #lube-modal .lube-history-table td:first-child {position:sticky;left:0;z-index:2;
+      background:var(--sticky-col);box-shadow:inset -1px 0 0 var(--border-color)}
+    #lube-modal .lube-history-table thead th:first-child {z-index:5;background:var(--sticky-head)}
+    #lube-modal .lube-history-table tbody tr:hover td {background:var(--hover-bg)}
+    #lube-modal .lube-history-table tbody tr:hover td:first-child {background:var(--sticky-col)}
+    #lube-modal .lube-history-table td:nth-child(2) {min-width:172px}
+    #lube-modal .lube-history-table td:nth-child(4) {min-width:210px;max-width:370px}
+    #lube-modal .lube-notes {margin-top:10px;font-size:10px;color:var(--text-sub)}
+    #lube-modal .lube-notes summary {cursor:pointer;font-size:10px;font-weight:700;padding:4px 0}
+    #lube-modal .lube-notes p {line-height:1.65;margin:5px 0 0}
+    #lube-modal .lube-dialog.lube-table-focus #lube-summary,
+    #lube-modal .lube-dialog.lube-table-focus #lube-engine-ratio {display:none!important}
+    #lube-modal .lube-dialog.lube-table-focus .lube-history-scroll {height:clamp(340px,66vh,790px)}
+    @media (max-width:1199px) {
+      /* Horizontal summary cards avoid a tall 2- or 4-row stack on tablets/phones. */
+      #lube-summary.lube-summary-grid {display:flex;overflow-x:auto;overflow-y:hidden;gap:10px;
+        scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#64748b transparent;padding-bottom:9px}
+      #lube-summary .summary-metric {flex:0 0 clamp(250px,32vw,320px);scroll-snap-align:start}
+    }
+    @media (max-width:900px) {
+      #lube-modal .lube-dialog {width:calc(100vw - 18px);max-height:96dvh;padding:14px}
+      #lube-summary .summary-metric {flex-basis:290px}
+      #lube-modal .lube-history-scroll {height:350px;min-height:280px}
+      #lube-modal .lube-history-table {min-width:960px}
+    }
+    @media (max-width:560px) {
+      #lube-summary .summary-metric {flex-basis:min(82vw,310px)}
+      #lube-modal .lube-dialog {padding:12px}
+      #lube-modal .lube-modal-header {gap:9px}
+      #lube-modal .lube-history-scroll {height:360px;min-height:260px}
+      #lube-modal .lube-dialog.lube-table-focus .lube-history-scroll {height:66vh;min-height:320px}
+    }
     @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
     </style>
 </head>
@@ -128,7 +209,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold tracking-tight">SmartFleet Condition Monitoring Dashboard</h1>
-                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.11 · Rimula Oil Allowance</p>
+                    <p class="text-xs theme-text-sub mt-0.5">Rev 7.12 · Rimula Oil Allowance</p>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
@@ -312,8 +393,8 @@
 
     <!-- MODAL 3: LUBE TOP-UP HISTORY (LAZY GOOGLE SHEETS CSV) -->
     <div id="lube-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="lube-modal-title">
-        <div class="theme-card w-full max-w-6xl rounded-2xl border shadow-2xl p-4 sm:p-6 max-h-[95vh] overflow-y-auto relative flex flex-col">
-            <div class="flex flex-wrap justify-between items-start sm:items-center gap-3 pb-4 mb-4 border-b border-slate-700">
+        <div class="theme-card lube-dialog rounded-2xl border shadow-2xl p-4 sm:p-6">
+            <div class="lube-modal-header flex flex-wrap justify-between items-start sm:items-center gap-3 pb-4 mb-4 border-b border-slate-700">
                 <div>
                     <h2 id="lube-modal-title" class="text-sm font-bold text-amber-400 uppercase tracking-wider">🛢️ Daily Lube Top Up History</h2>
                     <p class="text-[11px] theme-text-sub mt-1" id="lube-modal-subtitle">Select an asset to view its top-up records.</p>
@@ -325,26 +406,28 @@
                     <button type="button" onclick="closeLubeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl transition">✕ Close</button>
                 </div>
             </div>
-            <div id="lube-summary" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4"></div>
+            <div id="lube-summary" class="lube-summary-grid grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4"></div>
             <div id="lube-engine-ratio" class="mb-4" aria-live="polite"></div>
-            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+            <div class="lube-record-controls flex flex-wrap items-center gap-2.5 mb-3">
                 <label for="lube-search" class="sr-only">Search top-up records</label>
                 <input type="search" id="lube-search" oninput="renderLubeTopUp()" class="filter-control flex-1 min-w-[180px]" placeholder="Search date, oil type, remark..." autocomplete="off">
                 <label for="lube-oil-filter" class="sr-only">Filter oil type</label>
                 <select id="lube-oil-filter" onchange="renderLubeTopUp()" class="filter-control min-w-[170px]"><option value="ALL">All oil types</option></select>
                 <span id="lube-record-count" class="text-[11px] theme-text-sub font-mono">0 records</span>
+                <button type="button" class="lube-table-toggle" id="lube-table-toggle" onclick="toggleLubeTableFocus()" aria-pressed="false" title="Hide the overview cards to give the table more space">⤢ Focus on Table</button>
             </div>
-            <div class="table-container rounded-xl border border-slate-700/60" style="max-height:55vh">
-                <table class="w-full text-left text-xs border-collapse" aria-label="Daily Lube Top Up for selected asset">
+            <div class="lube-record-heading"><strong>Top-Up Detail Records</strong><span>Vertical scroll for records · Horizontal scroll for remaining columns</span></div>
+            <div class="lube-history-scroll" id="lube-history-scroll" tabindex="0" role="region" aria-label="Scrollable top-up detail records">
+                <table class="lube-history-table w-full text-left text-xs" aria-label="Daily Lube Top Up for selected asset">
                     <thead class="uppercase text-[10px] tracking-wider">
                         <tr>
-                            <th class="p-3 min-w-[110px]">Date</th>
-                            <th class="p-3 min-w-[220px]">Oil Type</th>
-                            <th class="p-3 text-right min-w-[100px]">Quantity</th>
-                            <th class="p-3 min-w-[290px]">Remark</th>
-                            <th class="p-3 text-right min-w-[120px]">Hour Meter (h)</th>
-                            <th class="p-3 text-right min-w-[140px]">Fuel Burned (L)</th>
-                            <th class="p-3 text-right min-w-[140px]">Fuel Burn Rate (L/h)</th>
+                            <th class="p-3 min-w-[105px]">Date</th>
+                            <th class="p-3 min-w-[170px]">Oil Type</th>
+                            <th class="p-3 text-right min-w-[85px]">Quantity</th>
+                            <th class="p-3 min-w-[220px]">Remark</th>
+                            <th class="p-3 text-right min-w-[112px]">Hour Meter (h)</th>
+                            <th class="p-3 text-right min-w-[116px]">Fuel Burned (L)</th>
+                            <th class="p-3 text-right min-w-[127px]">Fuel Burn Rate (L/h)</th>
                         </tr>
                     </thead>
                     <tbody id="lube-table-body" class="divide-y divide-slate-700/40">
@@ -352,13 +435,13 @@
                     </tbody>
                 </table>
             </div>
-            <p class="text-[10px] theme-text-sub mt-3">Totals are grouped by oil type, without combining lubricants. The Shell Rimula R4 X 15W40 summary card compares all positive oil top-ups in the published source with maximum allowed top-up = total unique equipment/date diesel burned ÷ 240 (all available source dates). The separate ENGINE warning continues to use the last 7 calendar days. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p>
+            <details class="lube-notes"><summary>Calculation notes &amp; source CSV</summary><p>Totals are grouped by oil type, without combining lubricants. The Shell Rimula R4 X 15W40 summary card compares all positive oil top-ups in the published source with maximum allowed top-up = total unique equipment/date diesel burned ÷ 240 (all available source dates). The separate ENGINE warning continues to use the last 7 calendar days. L/day uses the sum of positive, dated top-ups divided by calendar days from the first to the last recorded top-up (inclusive; same date = 1 day). The source quantities are treated as liters. <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vTZ8qpfiK52N1loYHZYwpqSX9CxmDYbJekjyuNau0Y-BBAYr50me6dW-y8bniarow/pub?output=csv" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">Open source CSV</a></p></details>
         </div>
     </div>
 
     <!-- Footer Signature -->
     <footer class="text-center mt-8 mb-2">
-        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.11 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
+        <p class="text-[10px] theme-text-sub">SmartFleet Rev 7.12 · Fast Sync · Condition, Lube History & Engine Oil / Fuel Ratio · Values reflect the source feed</p>
     </footer>
 
     <div id="toast" role="alert" aria-live="assertive" hidden></div>
@@ -1096,13 +1179,16 @@ function renderRimulaAllowanceCard(result){
     result.status==='unavailable'?'A valid Total Fuel Burned (L) value is required.':
     result.status==='above'?`${lubeFmtQty(result.difference)} L above the maximum allowance.`:
     `${lubeFmtQty(Math.max(0,-result.difference))} L remaining within the allowance.`;
-  return `<div class="mt-3 pt-2.5 border-t border-slate-700/50 space-y-1.5" data-rimula-allowance="${result.status}">
-    <div class="text-[10px] font-bold theme-text-sub">Engine Oil Allowance · Full Source History</div>
-    <div class="flex justify-between gap-2 text-[10px]"><span class="theme-text-sub">Total Fuel Burned</span><strong class="font-mono">${lubeFmtQty(result.fuelLiters)} L</strong></div>
-    <div class="flex justify-between gap-2 text-[10px]"><span class="theme-text-sub">Max Oil Top-Up <small>(Fuel ÷ 240)</small></span><strong class="font-mono">${lubeFmtQty(result.maxOilLiters)} L</strong></div>
-    <div class="flex justify-between gap-2 text-[10px]"><span class="theme-text-sub">Actual Oil Top-Up</span><strong class="font-mono">${lubeFmtQty(result.oilLiters)} L</strong></div>
-    <div class="border rounded-lg px-2 py-1.5 ${badge}"><strong class="text-[11px] ${tone}">${label}</strong><div class="text-[9px] theme-text-sub mt-0.5">${escapeHtml(note)}</div></div>
-    <div class="text-[9px] theme-text-sub">${result.fuelDays} unique fuel days · ${escapeHtml(range)} · Diesel counted once per asset/date</div>
+  return `<div class="lube-allowance" data-rimula-allowance="${result.status}">
+    <div class="lube-allowance-heading">Engine Oil Allowance <small>· Full Source History</small></div>
+    <div class="lube-allowance-values">
+      <span>Total Fuel Burned</span><strong class="font-mono">${lubeFmtQty(result.fuelLiters)} L</strong>
+      <span>Max Oil Top-Up (÷ 240)</span><strong class="font-mono">${lubeFmtQty(result.maxOilLiters)} L</strong>
+      <span>Actual Oil Top-Up</span><strong class="font-mono">${lubeFmtQty(result.oilLiters)} L</strong>
+    </div>
+    <div class="lube-allowance-status ${badge}"><strong class="${tone}">${label}</strong><small>${escapeHtml(note)}</small></div>
+    <details class="lube-allowance-notes"><summary>${result.fuelDays} unique fuel days · View coverage</summary>
+      <p>${escapeHtml(range)} · Diesel counted once per asset/date</p></details>
   </div>`;
 }
 
@@ -1161,12 +1247,12 @@ function renderLubeTopUp(){
     const dailyRate=hasDates&&spanDays>0?lubeFmtQty(v.datedTotal/spanDays):'—';
     const shortDate=stamp=>new Date(stamp).toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
     const period=hasDates?`${shortDate(v.minDay)} – ${shortDate(v.maxDay)}`:'No valid top-up dates';
-    return `<div class="summary-metric" title="Daily rate = total positive dated top-ups / inclusive calendar days from first to last top-up.">
+    return `<div class="summary-metric ${normalizeOilName(v.label)===ENGINE_OIL_TYPE_KEY?'lube-rimula-card':''}" title="Daily rate = total positive dated top-ups / inclusive calendar days from first to last top-up.">
       <div class="theme-text-sub text-[10px] font-semibold truncate" title="${escapeHtml(v.label)}">${escapeHtml(v.label)}</div>
-      <div class="summary-number text-[20px] text-amber-300 mt-1">${lubeFmtQty(v.total)}</div>
+      <div class="summary-number lube-metric-total text-[20px] text-amber-300 mt-1">${lubeFmtQty(v.total)}</div>
       <div class="text-[10px] theme-text-sub">${v.count} top-up record${v.count!==1?'s':''}</div>
-      <div class="mt-2 pt-2 border-t border-slate-700/50 flex flex-wrap items-baseline gap-x-1.5"><strong class="text-sky-300 text-[15px] font-extrabold tabular-nums">${dailyRate} L/day</strong><span class="theme-text-sub text-[10px]">${spanDays?`· ${spanDays} day${spanDays!==1?'s':''}`:''}</span></div>
-      <div class="theme-text-sub text-[9px] mt-1" title="First and last top-up dates for this oil type">${escapeHtml(period)}</div>
+      <div class="mt-2 pt-2 border-t border-slate-700/50 flex flex-wrap items-baseline gap-x-1.5"><strong class="lube-rate text-sky-300 text-[15px] font-extrabold tabular-nums">${dailyRate} L/day</strong><span class="theme-text-sub text-[10px]">${spanDays?`· ${spanDays} day${spanDays!==1?'s':''}`:''}</span></div>
+      <div class="lube-date-period theme-text-sub text-[9px] mt-1" title="First and last top-up dates for this oil type">${escapeHtml(period)}</div>
       ${normalizeOilName(v.label)===ENGINE_OIL_TYPE_KEY?renderRimulaAllowanceCard(rimulaAllowance):''}
     </div>`;
   }).join('')
@@ -1229,6 +1315,7 @@ async function openLubeTopUpFromModal(){
   if(!activeModalAsset)return;
   document.getElementById('lube-search').value='';
   document.getElementById('lube-oil-filter').value='ALL';
+  toggleLubeTableFocus(false);
   hydrateLubeCache();
   showModal('lube-modal');
   updateLubeAssetView();
@@ -1236,6 +1323,19 @@ async function openLubeTopUpFromModal(){
     setLubeSourceState(`Stored top-up data · Last synced ${new Date(lubeLastSyncedAt).toLocaleString()}`);
   }
   if(!lubeRowsGlobal.length||Date.now()-lubeLastSyncedAt>LUBE_CACHE_TTL_MS)await fetchLubeData(false);
+}
+function toggleLubeTableFocus(force){
+  const dialog=document.querySelector('#lube-modal .lube-dialog');
+  const btn=document.getElementById('lube-table-toggle');
+  if(!dialog||!btn)return;
+  const focused=typeof force==='boolean'?force:!dialog.classList.contains('lube-table-focus');
+  dialog.classList.toggle('lube-table-focus',focused);
+  btn.textContent=focused?'▦ Show Summary':'⤢ Focus on Table';
+  btn.setAttribute('aria-pressed',String(focused));
+  btn.title=focused?'Show lubricant summary cards again':'Hide overview cards to give the table more space';
+  if(focused){
+    document.getElementById('lube-history-scroll')?.scrollTo({top:0,behavior:'instant'});
+  }
 }
 function refreshLubeTopUp(){return fetchLubeData(true);}
 function closeLubeModal(){
